@@ -162,26 +162,20 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
     margin-top: 24pt;
     border-collapse: collapse;
   }
-  .sig-cell {
+  .sig-line {
     text-align: center;
     font-family: 'Times New Roman', Times, serif;
     font-size: 12pt;
     padding: 0 20pt;
     width: 50%;
   }
-  .sig-name {
+  .sig-info {
     text-align: center;
     font-family: 'Times New Roman', Times, serif;
     font-size: 12pt;
     padding: 0 20pt;
     width: 50%;
-  }
-  .sig-cargo {
-    text-align: center;
-    font-family: 'Times New Roman', Times, serif;
-    font-size: 12pt;
-    padding: 0 20pt;
-    width: 50%;
+    line-height: 1.3;
   }
 </style>
 </head>
