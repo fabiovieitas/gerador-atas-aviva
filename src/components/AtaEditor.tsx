@@ -47,49 +47,34 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
   const buildWordHtml = () => {
     let raw = editing && editorRef.current ? editorRef.current.innerText : ataTexto;
     
-    // Split into lines
     const lines = raw.split('\n');
     let htmlParts: string[] = [];
-    let i = 0;
     
-    while (i < lines.length) {
+    for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       
-      // Title line (first non-empty line starting with ATA DE)
+      // Title line (ATA DE ASSEMBLEIA...)
       if (line.trim().startsWith('ATA DE ASSEMBLEIA') || line.trim().startsWith('ATA DA ASSEMBLEIA')) {
         htmlParts.push(`<p class="titulo">${line.trim()}</p>`);
-        i++;
         continue;
       }
       
       // Signature placeholder
       if (line.trim() === '{{ASSINATURAS}}') {
-        // Skip - handled separately
-        i++;
-        continue;
-      }
-      
-      // Section headers (all caps lines like RELATÓRIO FINANCEIRO, OUTRAS DELIBERAÇÕES, MEMBROS PRESENTES)
-      if (line.trim() && line.trim() === line.trim().toUpperCase() && line.trim().length > 3 && !line.trim().startsWith('_')) {
-        htmlParts.push(`<p class="subtitulo">${line.trim()}</p>`);
-        i++;
         continue;
       }
       
       // Empty lines
       if (!line.trim()) {
-        i++;
         continue;
       }
       
-      // Regular paragraph
+      // Regular paragraph (all text is continuous, no section headers)
       htmlParts.push(`<p>${line.trim()}</p>`);
-      i++;
     }
     
     // Add signature block
     if (raw.includes('{{ASSINATURAS}}')) {
-      // Extract names from the store data via the text context
       htmlParts.push(`<div class="assinaturas">` + getSignatureHtml() + `</div>`);
     }
     
@@ -97,29 +82,36 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
   };
 
   const getSignatureHtml = () => {
-    // Parse names from ata text - look for the closing section
     const raw = editing && editorRef.current ? editorRef.current.innerText : ataTexto;
-    // Find names after "lavrei a presente ata" line
-    const match = raw.match(/e eu, (.+?), lavrei/);
-    const matchPres = raw.match(/presidência d[oa] .+? (.+?),/);
+    const match = raw.match(/eu, (.+?), na qualidade/);
+    const matchPres = raw.match(/direção d[oa] (.+?) (.+?),/);
     
     const secretario = match ? match[1] : '___';
-    const presidente = matchPres ? matchPres[1] : '___';
+    const cargoSec = 'Secretário(a)';
+    
+    // Try to get pastor name and title
+    let presidente = '___';
+    let cargoPres = '1º dirigente e Pastor';
+    if (matchPres) {
+      const cargoP = matchPres[1];
+      const nomeP = matchPres[2];
+      presidente = nomeP;
+      cargoPres = cargoP;
+    }
     
     return `
       <table class="sig-table" width="100%" cellspacing="0" cellpadding="0">
-        <tr><td height="60">&nbsp;</td><td height="60">&nbsp;</td></tr>
         <tr>
-          <td class="sig-cell">_________________________________</td>
-          <td class="sig-cell">_________________________________</td>
+          <td class="sig-cell">_________________________</td>
+          <td class="sig-cell">_________________________</td>
         </tr>
         <tr>
           <td class="sig-name">${secretario}</td>
           <td class="sig-name">${presidente}</td>
         </tr>
         <tr>
-          <td class="sig-cargo">Secretário(a)</td>
-          <td class="sig-cargo">Presidente</td>
+          <td class="sig-cargo">${cargoSec}</td>
+          <td class="sig-cargo">${cargoPres}</td>
         </tr>
       </table>`;
   };
@@ -172,13 +164,8 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
     margin-top: 0;
     margin-bottom: 9pt;
   }
-  p.subtitulo {
-    font-weight: bold;
-    margin-top: 12pt;
-    margin-bottom: 9pt;
-  }
   .sig-table {
-    margin-top: 40pt;
+    margin-top: 24pt;
     border-collapse: collapse;
   }
   .sig-cell {
@@ -192,7 +179,7 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
     text-align: center;
     font-family: 'Times New Roman', Times, serif;
     font-size: 12pt;
-    padding: 2pt 20pt 0;
+    padding: 0 20pt;
     width: 50%;
   }
   .sig-cargo {
