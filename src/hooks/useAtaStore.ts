@@ -97,19 +97,51 @@ export function useAtaStore() {
       return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
     };
 
+    const getMembro = (nome: string) => membros.find(mb => mb.nome === nome);
+
     const artigo = (nome: string) => {
-      const m = membros.find(mb => mb.nome === nome);
+      const m = getMembro(nome);
       return m?.genero === 'feminino' ? 'a' : 'o';
     };
 
     const artigoMaiusc = (nome: string) => {
-      const m = membros.find(mb => mb.nome === nome);
+      const m = getMembro(nome);
       return m?.genero === 'feminino' ? 'A' : 'O';
     };
 
-    const cargo = (nome: string) => {
-      const m = membros.find(mb => mb.nome === nome);
-      return m?.cargo || '';
+    // Returns the title/cargo with proper gender inflection
+    const cargoGenero = (nome: string) => {
+      const m = getMembro(nome);
+      if (!m?.cargo) return '';
+      return m.cargo;
+    };
+
+    // Builds the reference to a member: uses cargo if present, otherwise "irmão/irmã"
+    const refMembro = (nome: string) => {
+      const m = getMembro(nome);
+      const c = m?.cargo;
+      if (c) {
+        return `${artigo(nome)} ${c} ${nome}`;
+      }
+      const titulo = m?.genero === 'feminino' ? 'a irmã' : 'o irmão';
+      return `${titulo} ${nome}`;
+    };
+
+    // Same but starting a sentence (capitalized article)
+    const refMembroMaiusc = (nome: string) => {
+      const m = getMembro(nome);
+      const c = m?.cargo;
+      if (c) {
+        return `${artigoMaiusc(nome)} ${c} ${nome}`;
+      }
+      const titulo = m?.genero === 'feminino' ? 'A irmã' : 'O irmão';
+      return `${titulo} ${nome}`;
+    };
+
+    // Qualidade for encerramento (Secretário/Secretária based on gender)
+    const qualidadeSecretario = (nome: string) => {
+      const m = getMembro(nome);
+      return m?.genero === 'feminino' ? 'Secretária' : 'Secretário';
     };
 
     let texto = '';
@@ -122,12 +154,11 @@ export function useAtaStore() {
       texto += `. Não havendo quórum na primeira chamada, foi realizada segunda chamada às ${d.horaSegundaChamada || '___'}h`;
     }
 
-    texto += `, sob a direção d${artigo(d.pastorDirigente)} ${cargo(d.pastorDirigente)} ${d.pastorDirigente || '___'}`;
-    texto += `, para deliberar sobre ${d.assuntosPrincipais || '___'}.\n\n`;
+    texto += `, sob a direção d${refMembro(d.pastorDirigente)}`;
+    texto += `, para deliberar sobre ${d.assuntosPrincipais || '___'}. `;
 
-    // Chamada e abertura
-    texto += `Após ter feito a chamada dos membros presentes, e havendo quórum suficiente, `;
-    texto += `${artigo(d.pastorDirigente)} ${cargo(d.pastorDirigente)} ${d.pastorDirigente || '___'} declara instalada a assembleia e abertos os trabalhos.`;
+    // Chamada e abertura — mesmo parágrafo
+    texto += `Após ter feito a chamada dos membros presentes, e havendo quórum suficiente, ${refMembro(d.pastorDirigente)} declara instalada a assembleia e abertos os trabalhos.`;
 
     if (d.palavraInicial) {
       texto += ` Seguindo com a leitura de ${d.palavraInicial}`;
@@ -135,22 +166,22 @@ export function useAtaStore() {
       texto += `, apresentando uma breve palavra sobre esta porção bíblica.`;
     }
 
-    texto += ` Em seguida, convida ${artigo(d.nomeSecretario) === 'a' ? 'a' : 'o'} ${cargo(d.nomeSecretario)} ${d.nomeSecretario || '___'} para ler a ata do mês anterior`;
+    texto += ` Em seguida, convida ${refMembro(d.nomeSecretario)} para ler a ata do mês anterior`;
 
     // Ata anterior
     if (d.aprovacaoAtaAnterior === 'unanimidade') {
-      texto += `, sendo a mesma aprovada por todos os presentes.\n\n`;
+      texto += `, sendo a mesma aprovada por todos os presentes. `;
     } else {
-      texto += `. ${artigoMaiusc(d.ressalvaMembro)} membro ${d.ressalvaMembro || '___'} apresentou ressalvas: "${d.ressalvaMotivos || '___'}". `;
+      texto += `. ${refMembroMaiusc(d.ressalvaMembro)} apresentou ressalvas: "${d.ressalvaMotivos || '___'}". `;
       texto += `Foram prestados os seguintes esclarecimentos: "${d.ressalvaEsclarecimentos || '___'}". `;
       if (d.ressalvaPosicaoFinal === 'retirou') {
-        texto += `Após os esclarecimentos, ${artigo(d.ressalvaMembro)} membro retirou a ressalva e a ata foi aprovada.\n\n`;
+        texto += `Após os esclarecimentos, ${refMembro(d.ressalvaMembro)} retirou a ressalva e a ata foi aprovada. `;
       } else {
-        texto += `${artigoMaiusc(d.ressalvaMembro)} membro manteve sua posição.\n\n`;
+        texto += `${refMembroMaiusc(d.ressalvaMembro)} manteve sua posição. `;
       }
     }
 
-    // Relatório financeiro (sem título de seção)
+    // Relatório financeiro — mesmo parágrafo (continuidade)
     const renderMes = (mes: DadosFinanceiros) => {
       return `do mês de ${mes.nome || '___'} de ${mes.ano || '___'}, foi de ${valorPorExtenso(mes.caixaInicial || 'R$0,00')}, ` +
         `a entrada de ${valorPorExtenso(mes.entradas || 'R$0,00')}, ` +
@@ -158,34 +189,33 @@ export function useAtaStore() {
         `e tendo, como caixa final, a quantia de ${valorPorExtenso(mes.caixaFinal || 'R$0,00')}`;
     };
 
-    texto += `Com a palavra, ${d.tesoureira || '___'} informou que o caixa inicial da igreja, ${renderMes(d.mes1)}.\n\n`;
+    texto += `Com a palavra, ${refMembro(d.tesoureira)} informou que o caixa inicial da igreja, ${renderMes(d.mes1)}.`;
 
     if (d.incluirMes2 && d.relatorioMultiplosMeses) {
-      texto += `Ainda, ${artigo(d.tesoureira) === 'a' ? 'a mesma' : 'o mesmo'} apresentou o relatório financeiro ${renderMes(d.mes2)}.\n\n`;
+      texto += ` Ainda, ${artigo(d.tesoureira) === 'a' ? 'a mesma' : 'o mesmo'} apresentou o relatório financeiro ${renderMes(d.mes2)}.`;
     }
 
     if (d.aprovadorConselhoFiscal) {
-      texto += `Após a apresentação, houve total apoio do conselho fiscal, com a aprovação d${artigo(d.aprovadorConselhoFiscal)} ${d.aprovadorConselhoFiscal}`;
+      texto += ` Após a apresentação, houve total apoio do conselho fiscal, com a aprovação d${refMembro(d.aprovadorConselhoFiscal)}`;
     }
 
     if (d.aprovacaoFinanceira) {
       texto += `, e passou para a igreja a aprovação do relatório e seu conteúdo, sendo o mesmo aprovado de forma unânime.`;
     }
-    texto += `\n\n`;
 
-    // Deliberações (sem título de seção, fluxo contínuo)
+    // Deliberações — novo parágrafo (mudança de assunto)
     if (d.deliberacoes.length > 0) {
+      texto += `\n\n`;
       texto += `Continuando com a palavra, `;
-      d.deliberacoes.forEach((del, i) => {
+      d.deliberacoes.forEach((del) => {
         if (del.texto.trim()) {
           texto += `${del.texto} `;
         }
       });
-      texto += `\n\n`;
     }
 
-    // Encerramento
-    texto += `Feito isso, ${artigo(d.pastorDirigente)} ${cargo(d.pastorDirigente)} ${d.pastorDirigente || '___'} encerrou esta assembleia ${d.tipoAssembleia}, às ${d.horaTermino || '___'}h, orando e impetrando a bênção apostólica. E, por não haver mais nada a ser tratado, eu, ${d.nomeSecretario || '___'}, na qualidade de Secretário(a), lavrei a presente Ata, que após lida e aprovada pela Assembleia, vai assinada, por mim e pelo pastor.\n\n`;
+    // Encerramento — novo parágrafo (mudança de assunto)
+    texto += `\n\nFeito isso, ${refMembro(d.pastorDirigente)} encerrou esta assembleia ${d.tipoAssembleia}, às ${d.horaTermino || '___'}h, orando e impetrando a bênção apostólica. E, por não haver mais nada a ser tratado, eu, ${d.nomeSecretario || '___'}, na qualidade de ${qualidadeSecretario(d.nomeSecretario)}, lavrei a presente Ata, que após lida e aprovada pela Assembleia, vai assinada, por mim e pelo pastor.\n\n`;
     texto += `{{ASSINATURAS}}`;
 
     setAtaGerada(texto);
