@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useLocalStorage } from './useLocalStorage';
 import type { Membro, AtaFormData, AtaHistorico, DadosFinanceiros, Deliberacao } from '@/types/ata';
+import { valorPorExtenso } from '@/lib/extenso';
 
 const emptyMes = (): DadosFinanceiros => ({
   nome: '', ano: new Date().getFullYear().toString(),
