@@ -47,49 +47,34 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
   const buildWordHtml = () => {
     let raw = editing && editorRef.current ? editorRef.current.innerText : ataTexto;
     
-    // Split into lines
     const lines = raw.split('\n');
     let htmlParts: string[] = [];
-    let i = 0;
     
-    while (i < lines.length) {
+    for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       
-      // Title line (first non-empty line starting with ATA DE)
+      // Title line (ATA DE ASSEMBLEIA...)
       if (line.trim().startsWith('ATA DE ASSEMBLEIA') || line.trim().startsWith('ATA DA ASSEMBLEIA')) {
         htmlParts.push(`<p class="titulo">${line.trim()}</p>`);
-        i++;
         continue;
       }
       
       // Signature placeholder
       if (line.trim() === '{{ASSINATURAS}}') {
-        // Skip - handled separately
-        i++;
-        continue;
-      }
-      
-      // Section headers (all caps lines like RELATÓRIO FINANCEIRO, OUTRAS DELIBERAÇÕES, MEMBROS PRESENTES)
-      if (line.trim() && line.trim() === line.trim().toUpperCase() && line.trim().length > 3 && !line.trim().startsWith('_')) {
-        htmlParts.push(`<p class="subtitulo">${line.trim()}</p>`);
-        i++;
         continue;
       }
       
       // Empty lines
       if (!line.trim()) {
-        i++;
         continue;
       }
       
-      // Regular paragraph
+      // Regular paragraph (all text is continuous, no section headers)
       htmlParts.push(`<p>${line.trim()}</p>`);
-      i++;
     }
     
     // Add signature block
     if (raw.includes('{{ASSINATURAS}}')) {
-      // Extract names from the store data via the text context
       htmlParts.push(`<div class="assinaturas">` + getSignatureHtml() + `</div>`);
     }
     
