@@ -152,13 +152,13 @@ export function useAtaStore() {
 
     // Relatório financeiro (sem título de seção)
     const renderMes = (mes: DadosFinanceiros) => {
-      return `referente ao mês de ${mes.nome || '___'} de ${mes.ano || '___'}, foi de ${mes.caixaInicial || 'R$0,00'} (caixa inicial), ` +
-        `a entrada de ${mes.entradas || 'R$0,00'}, ` +
-        `saída de ${mes.saidas || 'R$0,00'} ` +
-        `e tendo, como caixa final, a quantia de ${mes.caixaFinal || 'R$0,00'}`;
+      return `do mês de ${mes.nome || '___'} de ${mes.ano || '___'}, foi de ${valorPorExtenso(mes.caixaInicial || 'R$0,00')}, ` +
+        `a entrada de ${valorPorExtenso(mes.entradas || 'R$0,00')}, ` +
+        `saída de ${valorPorExtenso(mes.saidas || 'R$0,00')} ` +
+        `e tendo, como caixa final, a quantia de ${valorPorExtenso(mes.caixaFinal || 'R$0,00')}`;
     };
 
-    texto += `Com a palavra, ${d.tesoureira || '___'} informou que o caixa inicial da igreja, do mês ${renderMes(d.mes1)}.\n\n`;
+    texto += `Com a palavra, ${d.tesoureira || '___'} informou que o caixa inicial da igreja, ${renderMes(d.mes1)}.\n\n`;
 
     if (d.incluirMes2 && d.relatorioMultiplosMeses) {
       texto += `Ainda, ${artigo(d.tesoureira) === 'a' ? 'a mesma' : 'o mesmo'} apresentou o relatório financeiro ${renderMes(d.mes2)}.\n\n`;
