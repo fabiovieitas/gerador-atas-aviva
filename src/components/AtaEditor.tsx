@@ -130,7 +130,6 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
         </tr>
       </table>`;
   };
-  };
 
   const baixarWord = () => {
     const content = buildWordHtml();
