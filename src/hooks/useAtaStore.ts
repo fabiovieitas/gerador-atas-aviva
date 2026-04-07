@@ -112,10 +112,10 @@ export function useAtaStore() {
     };
 
     let texto = '';
-    texto += `ATA DA ASSEMBLEIA ${d.tipoAssembleia.toUpperCase()} DA IGREJA AVIVA\n\n`;
+    texto += `ATA DE ASSEMBLEIA ${d.tipoAssembleia.toUpperCase()} DA IGREJA EVANGÉLICA AVIVA, EM FLORESTA, SÃO FRANCISCO DE ITABAPOANA (RJ), NA FORMA ABAIXO:\n\n`;
     texto += `Aos ${formatDate(d.dataReuniao)}, às ${d.horaInicio || '___'}h, `;
-    texto += `no templo da Igreja AVIVA, ${d.localReuniao || '___'}, `;
-    texto += `reuniu-se a Assembleia ${d.tipoAssembleia} da Igreja AVIVA`;
+    texto += `no templo da Igreja Evangélica AVIVA, ${d.localReuniao || '___'}, `;
+    texto += `reuniu-se a Assembleia ${d.tipoAssembleia} da Igreja Evangélica AVIVA`;
 
     if (d.semQuorum) {
       texto += `. Não havendo quórum na primeira chamada, foi realizada segunda chamada às ${d.horaSegundaChamada || '___'}h`;
@@ -188,12 +188,7 @@ export function useAtaStore() {
     // Encerramento
     texto += `Nada mais havendo a tratar, a reunião foi encerrada às ${d.horaTermino || '___'}h, e eu, ${d.nomeSecretario || '___'}, lavrei a presente ata, que vai assinada por mim e pelo presidente da mesa.\n\n`;
     texto += `${d.localReuniao || '___'}, ${formatDate(d.dataReuniao)}.\n\n\n`;
-    texto += `_________________________________\n`;
-    texto += `${d.pastorDirigente || '___'}\n`;
-    texto += `${cargo(d.pastorDirigente) || 'Presidente da Mesa'}\n\n\n`;
-    texto += `_________________________________\n`;
-    texto += `${d.nomeSecretario || '___'}\n`;
-    texto += `${cargo(d.nomeSecretario) || 'Redator(a) da Ata'}`;
+    texto += `{{ASSINATURAS}}`;
 
     setAtaGerada(texto);
     return texto;
