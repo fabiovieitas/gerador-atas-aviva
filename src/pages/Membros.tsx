@@ -1,7 +1,9 @@
 import { useAtaStore } from "@/hooks/useAtaStore";
 import { MemberManagement } from "@/components/MemberManagement";
 import { MemberUpload } from "@/components/MemberUpload";
-import { Users } from "lucide-react";
+import { Users, Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import type { Membro } from "@/types/ata";
 
 interface Props {
@@ -11,6 +13,24 @@ interface Props {
 export function MembrosPage({ store }: Props) {
   const handleBulkImport = (novos: Membro[]) => {
     novos.forEach(m => store.addMembro(m));
+  };
+
+  const handleBaixarModelo = () => {
+    const modeloCsv = [
+      "Nome,Cargo,Gênero",
+      "João da Silva,Pastor,masculino",
+      "Maria Souza,Secretária,feminino",
+      "Carlos Pereira,Tesoureiro,masculino",
+    ].join("\n");
+
+    const blob = new Blob([modeloCsv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "modelo_membros_aviva.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success("Modelo de importação baixado!");
   };
 
   return (
@@ -37,6 +57,14 @@ export function MembrosPage({ store }: Props) {
 
       <div className="section-card space-y-4">
         <h2 className="section-title">Importar Lista de Membros</h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" variant="secondary" onClick={handleBaixarModelo} className="gap-2">
+            <Download className="w-4 h-4" /> Baixar modelo CSV
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Use esse arquivo como exemplo para importar sem erro.
+          </p>
+        </div>
         <MemberUpload onImport={handleBulkImport} existingMembros={store.membros} />
       </div>
 

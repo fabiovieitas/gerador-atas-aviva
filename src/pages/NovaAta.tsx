@@ -7,7 +7,7 @@ import { MemberManagement } from "@/components/MemberManagement";
 import { AtaEditor } from "@/components/AtaEditor";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, FlaskConical, Eraser, Info, DollarSign, MessageSquare, Users, PenTool } from "lucide-react";
+import { FileText, FlaskConical, Eraser, Info, DollarSign, MessageSquare, Users, PenTool, CheckCircle2, Circle } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
 
@@ -17,6 +17,18 @@ interface Props {
 
 export function NovaAtaPage({ store }: Props) {
   const [originalTexto, setOriginalTexto] = useState('');
+  const { formData, membrosPresentes } = store;
+
+  const checklist = [
+    { label: "Data da reunião preenchida", ok: Boolean(formData.dataReuniao) },
+    { label: "Horário de início preenchido", ok: Boolean(formData.horaInicio) },
+    { label: "Dirigente selecionado", ok: Boolean(formData.pastorDirigente) },
+    { label: "Secretário(a) selecionado(a)", ok: Boolean(formData.nomeSecretario) },
+    { label: "Tesoureiro(a) selecionado(a)", ok: Boolean(formData.tesoureira) },
+    { label: "Pelo menos 1 membro presente", ok: membrosPresentes.length > 0 },
+  ];
+
+  const itensConferidos = checklist.filter((item) => item.ok).length;
 
   const handleGerar = () => {
     const texto = store.gerarAta();
@@ -43,6 +55,38 @@ export function NovaAtaPage({ store }: Props) {
         <Button variant="secondary" onClick={store.limparFormulario} className="gap-2">
           <Eraser className="w-4 h-4" /> Limpar
         </Button>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="section-card space-y-3">
+          <h2 className="section-title">Como usar (rápido)</h2>
+          <ol className="text-sm text-muted-foreground space-y-2 list-decimal pl-4">
+            <li>Preencha os dados nas abas (Informações, Financeiro, Presença e Secretário).</li>
+            <li>Clique em "Gerar Ata" para montar o texto automaticamente.</li>
+            <li>Revise no editor, depois copie ou baixe em Word.</li>
+          </ol>
+        </div>
+
+        <div className="section-card space-y-3">
+          <h2 className="section-title">Checklist antes de gerar</h2>
+          <p className="text-sm text-muted-foreground">
+            {itensConferidos} de {checklist.length} item(ns) conferido(s).
+          </p>
+          <div className="space-y-2">
+            {checklist.map((item) => (
+              <div key={item.label} className="flex items-center gap-2 text-sm">
+                {item.ok ? (
+                  <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
+                ) : (
+                  <Circle className="w-4 h-4 text-muted-foreground shrink-0" />
+                )}
+                <span className={item.ok ? "text-foreground" : "text-muted-foreground"}>
+                  {item.label}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Tabs */}
