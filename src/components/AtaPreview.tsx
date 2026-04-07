@@ -13,7 +13,29 @@ export function AtaPreview({ ataTexto }: Props) {
   };
 
   const baixarWord = () => {
-    const blob = new Blob([ataTexto], { type: 'application/msword' });
+    const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @page { margin: 1in; }
+  body {
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 12pt;
+    line-height: 1.8;
+    text-align: justify;
+    color: #000;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    margin: 0;
+    padding: 0;
+  }
+</style>
+</head>
+<body>${ataTexto}</body>
+</html>`;
+    const blob = new Blob([htmlContent], { type: 'application/msword' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

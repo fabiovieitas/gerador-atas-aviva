@@ -127,13 +127,16 @@
   }
 
   .ata-preview {
-    @apply bg-card border-2 border-dashed rounded-xl p-8;
-    font-family: 'Times New Roman', serif;
+    @apply bg-white border rounded-xl;
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 12pt;
     white-space: pre-wrap;
     word-wrap: break-word;
     text-align: justify;
     min-height: 300px;
     line-height: 1.8;
+    padding: 1in;
+    color: #1f2937;
   }
 
   .stat-card {
