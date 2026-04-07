@@ -164,13 +164,8 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
     margin-top: 0;
     margin-bottom: 9pt;
   }
-  p.subtitulo {
-    font-weight: bold;
-    margin-top: 12pt;
-    margin-bottom: 9pt;
-  }
   .sig-table {
-    margin-top: 40pt;
+    margin-top: 24pt;
     border-collapse: collapse;
   }
   .sig-cell {
@@ -184,7 +179,7 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
     text-align: center;
     font-family: 'Times New Roman', Times, serif;
     font-size: 12pt;
-    padding: 2pt 20pt 0;
+    padding: 0 20pt;
     width: 50%;
   }
   .sig-cargo {
