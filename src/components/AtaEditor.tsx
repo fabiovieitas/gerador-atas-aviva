@@ -1,8 +1,9 @@
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Copy, Download, Pencil, Eye, RotateCcw } from "lucide-react";
+import { Copy, Download, Pencil, Eye, RotateCcw, Bold, Italic, Underline as UnderlineIcon, AlignLeft, AlignCenter, AlignJustify, Minus, Plus, Undo2, Redo2 } from "lucide-react";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 
 interface Props {
   ataTexto: string;
@@ -12,15 +13,90 @@ interface Props {
 
 export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
   const [editing, setEditing] = useState(false);
+  const editorRef = useRef<HTMLDivElement>(null);
+  const [fontSize, setFontSize] = useState(12);
+
+  // Sync content into the contentEditable div when switching to edit mode or when ataTexto changes externally
+  useEffect(() => {
+    if (editing && editorRef.current) {
+      // Only set if content differs (avoid cursor reset)
+      const currentText = editorRef.current.innerText;
+      if (currentText !== ataTexto) {
+        editorRef.current.innerText = ataTexto;
+      }
+    }
+  }, [editing, ataTexto]);
+
+  const execCmd = useCallback((command: string, value?: string) => {
+    document.execCommand(command, false, value);
+    editorRef.current?.focus();
+  }, []);
+
+  const handleInput = useCallback(() => {
+    if (editorRef.current) {
+      // Get the HTML content for rich formatting
+      onUpdate(editorRef.current.innerText);
+    }
+  }, [onUpdate]);
 
   const copiar = () => {
     navigator.clipboard.writeText(ataTexto);
     toast.success("Ata copiada!");
   };
 
+  const getEditorHtml = () => {
+    if (editing && editorRef.current) {
+      return editorRef.current.innerHTML;
+    }
+    // When not editing, convert plain text to simple HTML
+    return ataTexto.replace(/\n/g, '<br>');
+  };
+
   const baixarWord = () => {
-    const htmlContent = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>@page{margin:1in;}body{font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:1.8;text-align:justify;color:#000;white-space:pre-wrap;word-wrap:break-word;margin:0;padding:0;}</style></head><body>${ataTexto}</body></html>`;
-    const blob = new Blob([htmlContent], { type: 'application/msword' });
+    const content = getEditorHtml();
+    const htmlContent = `<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8">
+<meta name="ProgId" content="Word.Document">
+<meta name="Generator" content="Microsoft Word 15">
+<meta name="Originator" content="Microsoft Word 15">
+<!--[if gte mso 9]>
+<xml>
+<w:WordDocument>
+<w:View>Print</w:View>
+<w:Zoom>100</w:Zoom>
+<w:DoNotOptimizeForBrowser/>
+</w:WordDocument>
+</xml>
+<![endif]-->
+<style>
+  @page {
+    size: A4;
+    margin: 1in;
+  }
+  body {
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 12pt;
+    line-height: 1.8;
+    text-align: justify;
+    color: #000;
+    margin: 0;
+    padding: 0;
+  }
+  p {
+    margin: 0;
+    padding: 0;
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 12pt;
+    line-height: 1.8;
+    text-align: justify;
+  }
+</style>
+</head>
+<body>${content}</body>
+</html>`;
+    const blob = new Blob(['\ufeff' + htmlContent], { type: 'application/msword' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -33,9 +109,35 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
   const restaurar = () => {
     if (originalTexto) {
       onUpdate(originalTexto);
+      if (editorRef.current) {
+        editorRef.current.innerText = originalTexto;
+      }
       toast.info("Texto restaurado ao original.");
     }
   };
+
+  const changeFontSize = (delta: number) => {
+    const newSize = Math.max(8, Math.min(24, fontSize + delta));
+    setFontSize(newSize);
+    if (editorRef.current) {
+      editorRef.current.style.fontSize = `${newSize}pt`;
+    }
+  };
+
+  const ToolbarButton = ({ icon: Icon, label, onClick, className = "" }: { icon: any; label: string; onClick: () => void; className?: string }) => (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onMouseDown={(e) => { e.preventDefault(); onClick(); }}
+          className={`p-1.5 rounded hover:bg-muted text-foreground/70 hover:text-foreground transition-colors ${className}`}
+        >
+          <Icon className="w-4 h-4" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="text-xs">{label}</TooltipContent>
+    </Tooltip>
+  );
 
   return (
     <div className="section-card">
@@ -70,12 +172,42 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
         )}
       </div>
 
+      {/* Toolbar - visible only in edit mode */}
+      {editing && ataTexto && (
+        <TooltipProvider delayDuration={300}>
+          <div className="flex items-center gap-0.5 p-2 mb-3 rounded-lg border bg-muted/30 flex-wrap">
+            <ToolbarButton icon={Bold} label="Negrito (Ctrl+B)" onClick={() => execCmd('bold')} />
+            <ToolbarButton icon={Italic} label="Itálico (Ctrl+I)" onClick={() => execCmd('italic')} />
+            <ToolbarButton icon={UnderlineIcon} label="Sublinhado (Ctrl+U)" onClick={() => execCmd('underline')} />
+
+            <Separator orientation="vertical" className="h-6 mx-1" />
+
+            <ToolbarButton icon={AlignLeft} label="Alinhar à esquerda" onClick={() => execCmd('justifyLeft')} />
+            <ToolbarButton icon={AlignCenter} label="Centralizar" onClick={() => execCmd('justifyCenter')} />
+            <ToolbarButton icon={AlignJustify} label="Justificar" onClick={() => execCmd('justifyFull')} />
+
+            <Separator orientation="vertical" className="h-6 mx-1" />
+
+            <ToolbarButton icon={Minus} label="Diminuir fonte" onClick={() => changeFontSize(-1)} />
+            <span className="text-xs font-medium text-muted-foreground min-w-[3ch] text-center">{fontSize}</span>
+            <ToolbarButton icon={Plus} label="Aumentar fonte" onClick={() => changeFontSize(1)} />
+
+            <Separator orientation="vertical" className="h-6 mx-1" />
+
+            <ToolbarButton icon={Undo2} label="Desfazer (Ctrl+Z)" onClick={() => execCmd('undo')} />
+            <ToolbarButton icon={Redo2} label="Refazer (Ctrl+Y)" onClick={() => execCmd('redo')} />
+          </div>
+        </TooltipProvider>
+      )}
+
       {editing ? (
-        <Textarea
-          value={ataTexto}
-          onChange={e => onUpdate(e.target.value)}
-          className="min-h-[400px] font-serif text-sm leading-relaxed"
-          style={{ fontFamily: "'Times New Roman', Times, serif", fontSize: '12pt', lineHeight: '1.8' }}
+        <div
+          ref={editorRef}
+          contentEditable
+          onInput={handleInput}
+          className="ata-preview outline-none focus:ring-2 focus:ring-primary/20 cursor-text"
+          style={{ fontSize: `${fontSize}pt` }}
+          suppressContentEditableWarning
         />
       ) : (
         <div className="ata-preview">

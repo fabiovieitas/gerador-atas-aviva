@@ -1,4 +1,5 @@
 import { FileText, Users, Clock, LayoutDashboard, Plus, Settings } from "lucide-react";
+import { APP_VERSION } from "@/lib/version";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import {
