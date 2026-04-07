@@ -1,4 +1,5 @@
 import { FileText, Users, Clock, LayoutDashboard, Plus, Settings } from "lucide-react";
+import { APP_VERSION } from "@/lib/version";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import {
@@ -37,7 +38,7 @@ export function AppSidebar() {
             </div>
             <div>
               <h2 className="text-sm font-bold text-sidebar-foreground">Igreja AVIVA</h2>
-              <p className="text-xs text-sidebar-foreground/60">Gerador de Atas</p>
+              <p className="text-xs text-sidebar-foreground/60">Gerador de Atas <span className="opacity-50">v{APP_VERSION}</span></p>
             </div>
           </div>
         )}
