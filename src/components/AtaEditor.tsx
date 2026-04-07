@@ -97,31 +97,39 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
   };
 
   const getSignatureHtml = () => {
-    // Parse names from ata text - look for the closing section
     const raw = editing && editorRef.current ? editorRef.current.innerText : ataTexto;
-    // Find names after "lavrei a presente ata" line
-    const match = raw.match(/e eu, (.+?), lavrei/);
-    const matchPres = raw.match(/presidência d[oa] .+? (.+?),/);
+    const match = raw.match(/eu, (.+?), na qualidade/);
+    const matchPres = raw.match(/direção d[oa] (.+?) (.+?),/);
     
     const secretario = match ? match[1] : '___';
-    const presidente = matchPres ? matchPres[1] : '___';
+    const cargoSec = 'Secretário(a)';
+    
+    // Try to get pastor name and title
+    let presidente = '___';
+    let cargoPres = '1º dirigente e Pastor';
+    if (matchPres) {
+      const cargoP = matchPres[1];
+      const nomeP = matchPres[2];
+      presidente = nomeP;
+      cargoPres = cargoP;
+    }
     
     return `
       <table class="sig-table" width="100%" cellspacing="0" cellpadding="0">
-        <tr><td height="60">&nbsp;</td><td height="60">&nbsp;</td></tr>
         <tr>
-          <td class="sig-cell">_________________________________</td>
-          <td class="sig-cell">_________________________________</td>
+          <td class="sig-cell">_________________________</td>
+          <td class="sig-cell">_________________________</td>
         </tr>
         <tr>
           <td class="sig-name">${secretario}</td>
           <td class="sig-name">${presidente}</td>
         </tr>
         <tr>
-          <td class="sig-cargo">Secretário(a)</td>
-          <td class="sig-cargo">Presidente</td>
+          <td class="sig-cargo">${cargoSec}</td>
+          <td class="sig-cargo">${cargoPres}</td>
         </tr>
       </table>`;
+  };
   };
 
   const baixarWord = () => {
