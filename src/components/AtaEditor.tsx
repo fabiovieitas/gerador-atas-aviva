@@ -321,7 +321,25 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
         />
       ) : (
         <div className="ata-preview">
-          {ataTexto || (
+          {ataTexto ? (
+            ataTexto.split('\n').map((line, i) => {
+              if (line.trim() === '{{ASSINATURAS}}') {
+                return (
+                  <div key={i} className="mt-10 flex justify-around">
+                    <div className="text-center">
+                      <div className="border-t border-black w-48 mb-1"></div>
+                      <div>Secretário(a)</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="border-t border-black w-48 mb-1"></div>
+                      <div>Presidente</div>
+                    </div>
+                  </div>
+                );
+              }
+              return <span key={i}>{line}{'\n'}</span>;
+            })
+          ) : (
             <span className="text-muted-foreground italic">
               Preencha os campos e clique em "Gerar Ata" para ver a pré-visualização aqui.
             </span>

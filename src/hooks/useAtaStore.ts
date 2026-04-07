@@ -114,8 +114,8 @@ export function useAtaStore() {
     let texto = '';
     texto += `ATA DE ASSEMBLEIA ${d.tipoAssembleia.toUpperCase()} DA IGREJA EVANGÉLICA AVIVA, EM FLORESTA, SÃO FRANCISCO DE ITABAPOANA (RJ), NA FORMA ABAIXO:\n\n`;
     texto += `Aos ${formatDate(d.dataReuniao)}, às ${d.horaInicio || '___'}h, `;
-    texto += `no templo da Igreja AVIVA, ${d.localReuniao || '___'}, `;
-    texto += `reuniu-se a Assembleia ${d.tipoAssembleia} da Igreja AVIVA`;
+    texto += `no templo da Igreja Evangélica AVIVA, ${d.localReuniao || '___'}, `;
+    texto += `reuniu-se a Assembleia ${d.tipoAssembleia} da Igreja Evangélica AVIVA`;
 
     if (d.semQuorum) {
       texto += `. Não havendo quórum na primeira chamada, foi realizada segunda chamada às ${d.horaSegundaChamada || '___'}h`;
