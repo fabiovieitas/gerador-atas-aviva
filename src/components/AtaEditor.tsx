@@ -160,7 +160,7 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
   }
   p.titulo {
     font-weight: bold;
-    text-indent: 5cm;
+    margin-left: 5cm;
     margin-top: 0;
     margin-bottom: 9pt;
   }
