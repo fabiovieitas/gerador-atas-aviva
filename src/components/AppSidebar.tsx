@@ -1,4 +1,4 @@
-import { FileText, Users, Clock, LayoutDashboard, Plus } from "lucide-react";
+import { FileText, Users, Clock, LayoutDashboard, Plus, Settings } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import {
@@ -19,6 +19,7 @@ const items = [
   { title: "Nova Ata", url: "/nova-ata", icon: Plus },
   { title: "Histórico", url: "/historico", icon: Clock },
   { title: "Membros", url: "/membros", icon: Users },
+  { title: "Configurações", url: "/configuracoes", icon: Settings },
 ];
 
 export function AppSidebar() {

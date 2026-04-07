@@ -4,21 +4,23 @@ import { FinancialReportSection } from "@/components/FinancialReportSection";
 import { DeliberationsSection } from "@/components/DeliberationsSection";
 import { SecretarySection } from "@/components/SecretarySection";
 import { MemberManagement } from "@/components/MemberManagement";
-import { AtaPreview } from "@/components/AtaPreview";
+import { AtaEditor } from "@/components/AtaEditor";
 import { Button } from "@/components/ui/button";
-import { FileText, FlaskConical, Eraser, Download, Upload } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FileText, FlaskConical, Eraser, Info, DollarSign, MessageSquare, Users, PenTool } from "lucide-react";
 import { toast } from "sonner";
-import { useRef } from "react";
+import { useState } from "react";
 
 interface Props {
   store: ReturnType<typeof useAtaStore>;
 }
 
 export function NovaAtaPage({ store }: Props) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [originalTexto, setOriginalTexto] = useState('');
 
   const handleGerar = () => {
     const texto = store.gerarAta();
+    setOriginalTexto(texto);
     store.salvarNoHistorico(texto);
     toast.success("Ata gerada e salva no histórico!");
   };
@@ -28,81 +30,104 @@ export function NovaAtaPage({ store }: Props) {
     toast.info("Dados de teste preenchidos!");
   };
 
-  const handleExportar = () => {
-    const data = {
-      membros: store.membros,
-      historico: store.historico,
-      defaults: store.defaults,
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'atas_aviva_backup.json';
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success("Dados exportados!");
-  };
-
-  const handleImportar = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const data = JSON.parse(reader.result as string);
-        if (data.membros) localStorage.setItem('membrosAvivaAta', JSON.stringify(data.membros));
-        if (data.historico) localStorage.setItem('atasAvivaHistorico2025', JSON.stringify(data.historico));
-        if (data.defaults) localStorage.setItem('ataDefaults', JSON.stringify(data.defaults));
-        toast.success("Dados importados! Recarregue a página para aplicar.");
-      } catch {
-        toast.error("Arquivo inválido.");
-      }
-    };
-    reader.readAsText(file);
-  };
-
   return (
     <div className="max-w-5xl mx-auto space-y-6">
+      {/* Action bar */}
       <div className="flex flex-wrap items-center gap-3">
-        <Button onClick={handleGerar} className="bg-primary text-primary-foreground">
-          <FileText className="w-4 h-4 mr-2" /> Gerar Ata
+        <Button onClick={handleGerar} className="gap-2">
+          <FileText className="w-4 h-4" /> Gerar Ata
         </Button>
-        <Button variant="secondary" onClick={handleTeste}>
-          <FlaskConical className="w-4 h-4 mr-2" /> Ata Teste
+        <Button variant="secondary" onClick={handleTeste} className="gap-2">
+          <FlaskConical className="w-4 h-4" /> Ata Teste
         </Button>
-        <Button variant="secondary" onClick={store.limparFormulario}>
-          <Eraser className="w-4 h-4 mr-2" /> Limpar
+        <Button variant="secondary" onClick={store.limparFormulario} className="gap-2">
+          <Eraser className="w-4 h-4" /> Limpar
         </Button>
-        <Button variant="outline" onClick={handleExportar}>
-          <Download className="w-4 h-4 mr-2" /> Exportar
-        </Button>
-        <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-          <Upload className="w-4 h-4 mr-2" /> Importar
-        </Button>
-        <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleImportar} />
       </div>
 
-      <MeetingInfoSection data={store.formData} onUpdate={store.updateField} onSaveDefault={store.saveDefault} />
-      <FinancialReportSection data={store.formData} onUpdate={store.updateField} onUpdateMes={store.updateMes} onSaveDefault={store.saveDefault} />
-      <DeliberationsSection deliberacoes={store.deliberacoes} onAdd={store.addDeliberacao} onUpdate={store.updateDeliberacao} onRemove={store.removeDeliberacao} />
+      {/* Tabs */}
+      <Tabs defaultValue="info" className="w-full">
+        <TabsList className="w-full grid grid-cols-5 h-auto">
+          <TabsTrigger value="info" className="gap-1.5 text-xs sm:text-sm py-2.5">
+            <Info className="w-4 h-4 shrink-0" />
+            <span className="hidden sm:inline">Informações</span>
+          </TabsTrigger>
+          <TabsTrigger value="financeiro" className="gap-1.5 text-xs sm:text-sm py-2.5">
+            <DollarSign className="w-4 h-4 shrink-0" />
+            <span className="hidden sm:inline">Financeiro</span>
+          </TabsTrigger>
+          <TabsTrigger value="deliberacoes" className="gap-1.5 text-xs sm:text-sm py-2.5">
+            <MessageSquare className="w-4 h-4 shrink-0" />
+            <span className="hidden sm:inline">Deliberações</span>
+          </TabsTrigger>
+          <TabsTrigger value="membros" className="gap-1.5 text-xs sm:text-sm py-2.5">
+            <Users className="w-4 h-4 shrink-0" />
+            <span className="hidden sm:inline">Presença</span>
+          </TabsTrigger>
+          <TabsTrigger value="secretario" className="gap-1.5 text-xs sm:text-sm py-2.5">
+            <PenTool className="w-4 h-4 shrink-0" />
+            <span className="hidden sm:inline">Secretário</span>
+          </TabsTrigger>
+        </TabsList>
 
-      <div className="section-card">
-        <h2 className="section-title">Membros e Presença</h2>
-        <MemberManagement
-          membros={store.membros}
-          membrosPresentes={store.membrosPresentes}
-          onAdd={store.addMembro}
-          onRemove={store.removeMembro}
-          onUpdate={store.updateMembro}
-          onTogglePresenca={store.togglePresenca}
-          onSetPresentes={store.setMembrosPresentes}
-        />
-      </div>
+        <TabsContent value="info">
+          <MeetingInfoSection data={store.formData} onUpdate={store.updateField} onSaveDefault={store.saveDefault} />
+        </TabsContent>
 
-      <SecretarySection data={store.formData} onUpdate={store.updateField} onSaveDefault={store.saveDefault} />
+        <TabsContent value="financeiro">
+          <FinancialReportSection data={store.formData} onUpdate={store.updateField} onUpdateMes={store.updateMes} onSaveDefault={store.saveDefault} />
+        </TabsContent>
 
-      <AtaPreview ataTexto={store.ataGerada} />
+        <TabsContent value="deliberacoes">
+          <DeliberationsSection deliberacoes={store.deliberacoes} onAdd={store.addDeliberacao} onUpdate={store.updateDeliberacao} onRemove={store.removeDeliberacao} />
+        </TabsContent>
+
+        <TabsContent value="membros">
+          <div className="section-card space-y-4">
+            <h2 className="section-title">Membros e Presença</h2>
+            <MemberManagement
+              membros={store.membros}
+              membrosPresentes={store.membrosPresentes}
+              onAdd={store.addMembro}
+              onRemove={store.removeMembro}
+              onUpdate={store.updateMembro}
+              onTogglePresenca={store.togglePresenca}
+              onSetPresentes={store.setMembrosPresentes}
+            />
+            {store.membros.length > 0 && (
+              <div className="space-y-2 mt-4">
+                <p className="text-sm font-semibold text-muted-foreground">
+                  {store.membrosPresentes.length} de {store.membros.length} presente(s)
+                </p>
+                <div className="grid sm:grid-cols-2 gap-2">
+                  {store.membros.map((m, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                      <div className="min-w-0">
+                        <p className="font-medium text-foreground text-sm truncate">{m.nome}</p>
+                        <p className="text-xs text-muted-foreground">{m.cargo}</p>
+                      </div>
+                      <span className={`text-xs px-2 py-1 rounded-full shrink-0 ${store.membrosPresentes.includes(m.nome) ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'}`}>
+                        {store.membrosPresentes.includes(m.nome) ? '✓ Presente' : 'Ausente'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="secretario">
+          <SecretarySection data={store.formData} onUpdate={store.updateField} onSaveDefault={store.saveDefault} />
+        </TabsContent>
+      </Tabs>
+
+      {/* Editor / Preview */}
+      <AtaEditor
+        ataTexto={store.ataGerada}
+        onUpdate={store.setAtaGerada}
+        originalTexto={originalTexto}
+      />
     </div>
   );
 }
