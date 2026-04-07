@@ -300,14 +300,14 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
             ataTexto.split('\n').map((line, i) => {
               if (line.trim() === '{{ASSINATURAS}}') {
                 return (
-                  <div key={i} className="mt-10 flex justify-around">
+                  <div key={i} className="mt-6 flex justify-around">
                     <div className="text-center">
-                      <div className="border-t border-black w-48 mb-1"></div>
-                      <div>Secretário(a)</div>
+                      <div className="border-t border-black w-48"></div>
+                      <div className="text-sm leading-tight">Secretário(a)</div>
                     </div>
                     <div className="text-center">
-                      <div className="border-t border-black w-48 mb-1"></div>
-                      <div>Presidente</div>
+                      <div className="border-t border-black w-48"></div>
+                      <div className="text-sm leading-tight">Presidente</div>
                     </div>
                   </div>
                 );
