@@ -83,37 +83,31 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
 
   const getSignatureHtml = () => {
     const raw = editing && editorRef.current ? editorRef.current.innerText : ataTexto;
-    const match = raw.match(/eu, (.+?), na qualidade/);
-    const matchPres = raw.match(/direção d[oa] (.+?) (.+?),/);
     
-    const secretario = match ? match[1] : '___';
-    const cargoSec = 'Secretário(a)';
+    // Extract secretary name: "eu, NOME, na qualidade"
+    const matchSec = raw.match(/eu,\s*(.+?),\s*na qualidade/);
+    const secretario = matchSec ? matchSec[1].trim() : '___';
     
-    // Try to get pastor name and title
+    // Extract pastor: "direção do/da CARGO NOME," 
+    const matchPres = raw.match(/direção d[oa]\s+(.+?)\s+([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+)*),/);
     let presidente = '___';
     let cargoPres = '1º dirigente e Pastor';
     if (matchPres) {
-      const cargoP = matchPres[1];
-      const nomeP = matchPres[2];
-      presidente = nomeP;
-      cargoPres = cargoP;
+      cargoPres = matchPres[1].trim();
+      presidente = matchPres[2].trim();
     }
     
     return `
       <table class="sig-table" width="100%" cellspacing="0" cellpadding="0">
         <tr>
-          <td class="sig-cell">_________________________</td>
-          <td class="sig-cell">_________________________</td>
+          <td class="sig-line">_________________________</td>
+          <td class="sig-line">_________________________</td>
         </tr>
         <tr>
-          <td class="sig-name">${secretario}</td>
-          <td class="sig-name">${presidente}</td>
+          <td class="sig-info">${secretario}<br/>Secretário(a)</td>
+          <td class="sig-info">${presidente}<br/>${cargoPres}</td>
         </tr>
-        <tr>
-          <td class="sig-cargo">${cargoSec}</td>
-          <td class="sig-cargo">${cargoPres}</td>
-        </tr>
-      </table>`;
+      </table>`; 
   };
 
   const baixarWord = () => {
@@ -160,7 +154,7 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
   }
   p.titulo {
     font-weight: bold;
-    text-indent: 5cm;
+    margin-left: 5cm;
     margin-top: 0;
     margin-bottom: 9pt;
   }
@@ -168,26 +162,20 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
     margin-top: 24pt;
     border-collapse: collapse;
   }
-  .sig-cell {
+  .sig-line {
     text-align: center;
     font-family: 'Times New Roman', Times, serif;
     font-size: 12pt;
     padding: 0 20pt;
     width: 50%;
   }
-  .sig-name {
+  .sig-info {
     text-align: center;
     font-family: 'Times New Roman', Times, serif;
     font-size: 12pt;
     padding: 0 20pt;
     width: 50%;
-  }
-  .sig-cargo {
-    text-align: center;
-    font-family: 'Times New Roman', Times, serif;
-    font-size: 12pt;
-    padding: 0 20pt;
-    width: 50%;
+    line-height: 1.3;
   }
 </style>
 </head>
@@ -312,14 +300,14 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
             ataTexto.split('\n').map((line, i) => {
               if (line.trim() === '{{ASSINATURAS}}') {
                 return (
-                  <div key={i} className="mt-10 flex justify-around">
+                  <div key={i} className="mt-6 flex justify-around">
                     <div className="text-center">
-                      <div className="border-t border-black w-48 mb-1"></div>
-                      <div>Secretário(a)</div>
+                      <div className="border-t border-black w-48"></div>
+                      <div className="text-sm leading-tight">Secretário(a)</div>
                     </div>
                     <div className="text-center">
-                      <div className="border-t border-black w-48 mb-1"></div>
-                      <div>Presidente</div>
+                      <div className="border-t border-black w-48"></div>
+                      <div className="text-sm leading-tight">Presidente</div>
                     </div>
                   </div>
                 );
