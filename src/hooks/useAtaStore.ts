@@ -188,12 +188,7 @@ export function useAtaStore() {
     // Encerramento
     texto += `Nada mais havendo a tratar, a reunião foi encerrada às ${d.horaTermino || '___'}h, e eu, ${d.nomeSecretario || '___'}, lavrei a presente ata, que vai assinada por mim e pelo presidente da mesa.\n\n`;
     texto += `${d.localReuniao || '___'}, ${formatDate(d.dataReuniao)}.\n\n\n`;
-    texto += `_________________________________\n`;
-    texto += `${d.pastorDirigente || '___'}\n`;
-    texto += `${cargo(d.pastorDirigente) || 'Presidente da Mesa'}\n\n\n`;
-    texto += `_________________________________\n`;
-    texto += `${d.nomeSecretario || '___'}\n`;
-    texto += `${cargo(d.nomeSecretario) || 'Redator(a) da Ata'}`;
+    texto += `{{ASSINATURAS}}`;
 
     setAtaGerada(texto);
     return texto;

@@ -44,16 +44,88 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
     toast.success("Ata copiada!");
   };
 
-  const getEditorHtml = () => {
-    if (editing && editorRef.current) {
-      return editorRef.current.innerHTML;
+  const buildWordHtml = () => {
+    let raw = editing && editorRef.current ? editorRef.current.innerText : ataTexto;
+    
+    // Split into lines
+    const lines = raw.split('\n');
+    let htmlParts: string[] = [];
+    let i = 0;
+    
+    while (i < lines.length) {
+      const line = lines[i];
+      
+      // Title line (first non-empty line starting with ATA DE)
+      if (line.trim().startsWith('ATA DE ASSEMBLEIA') || line.trim().startsWith('ATA DA ASSEMBLEIA')) {
+        htmlParts.push(`<p class="titulo">${line.trim()}</p>`);
+        i++;
+        continue;
+      }
+      
+      // Signature placeholder
+      if (line.trim() === '{{ASSINATURAS}}') {
+        // Skip - handled separately
+        i++;
+        continue;
+      }
+      
+      // Section headers (all caps lines like RELATÓRIO FINANCEIRO, OUTRAS DELIBERAÇÕES, MEMBROS PRESENTES)
+      if (line.trim() && line.trim() === line.trim().toUpperCase() && line.trim().length > 3 && !line.trim().startsWith('_')) {
+        htmlParts.push(`<p class="subtitulo">${line.trim()}</p>`);
+        i++;
+        continue;
+      }
+      
+      // Empty lines
+      if (!line.trim()) {
+        i++;
+        continue;
+      }
+      
+      // Regular paragraph
+      htmlParts.push(`<p>${line.trim()}</p>`);
+      i++;
     }
-    // When not editing, convert plain text to simple HTML
-    return ataTexto.replace(/\n/g, '<br>');
+    
+    // Add signature block
+    if (raw.includes('{{ASSINATURAS}}')) {
+      // Extract names from the store data via the text context
+      htmlParts.push(`<div class="assinaturas">` + getSignatureHtml() + `</div>`);
+    }
+    
+    return htmlParts.join('\n');
+  };
+
+  const getSignatureHtml = () => {
+    // Parse names from ata text - look for the closing section
+    const raw = editing && editorRef.current ? editorRef.current.innerText : ataTexto;
+    // Find names after "lavrei a presente ata" line
+    const match = raw.match(/e eu, (.+?), lavrei/);
+    const matchPres = raw.match(/presidência d[oa] .+? (.+?),/);
+    
+    const secretario = match ? match[1] : '___';
+    const presidente = matchPres ? matchPres[1] : '___';
+    
+    return `
+      <table class="sig-table" width="100%" cellspacing="0" cellpadding="0">
+        <tr><td height="60">&nbsp;</td><td height="60">&nbsp;</td></tr>
+        <tr>
+          <td class="sig-cell">_________________________________</td>
+          <td class="sig-cell">_________________________________</td>
+        </tr>
+        <tr>
+          <td class="sig-name">${secretario}</td>
+          <td class="sig-name">${presidente}</td>
+        </tr>
+        <tr>
+          <td class="sig-cargo">Secretário(a)</td>
+          <td class="sig-cargo">Presidente</td>
+        </tr>
+      </table>`;
   };
 
   const baixarWord = () => {
-    const content = getEditorHtml();
+    const content = buildWordHtml();
     const htmlContent = `<!DOCTYPE html>
 <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
 <head>
@@ -73,24 +145,62 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
 <style>
   @page {
     size: A4;
-    margin: 1in;
+    margin-top: 1cm;
+    margin-bottom: 1.5cm;
+    margin-left: 3cm;
+    margin-right: 3cm;
   }
   body {
     font-family: 'Times New Roman', Times, serif;
     font-size: 12pt;
-    line-height: 1.8;
     text-align: justify;
     color: #000;
     margin: 0;
     padding: 0;
   }
   p {
-    margin: 0;
-    padding: 0;
     font-family: 'Times New Roman', Times, serif;
     font-size: 12pt;
-    line-height: 1.8;
     text-align: justify;
+    margin-top: 0;
+    margin-bottom: 9pt;
+    line-height: 1.5;
+  }
+  p.titulo {
+    font-weight: bold;
+    text-indent: 5cm;
+    margin-top: 0;
+    margin-bottom: 9pt;
+  }
+  p.subtitulo {
+    font-weight: bold;
+    margin-top: 12pt;
+    margin-bottom: 9pt;
+  }
+  .sig-table {
+    margin-top: 40pt;
+    border-collapse: collapse;
+  }
+  .sig-cell {
+    text-align: center;
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 12pt;
+    padding: 0 20pt;
+    width: 50%;
+  }
+  .sig-name {
+    text-align: center;
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 12pt;
+    padding: 2pt 20pt 0;
+    width: 50%;
+  }
+  .sig-cargo {
+    text-align: center;
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 12pt;
+    padding: 0 20pt;
+    width: 50%;
   }
 </style>
 </head>
