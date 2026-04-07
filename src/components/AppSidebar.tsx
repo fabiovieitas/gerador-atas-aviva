@@ -34,9 +34,7 @@ export function AppSidebar() {
       <SidebarHeader className="p-4">
         {!collapsed && (
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-sidebar-primary flex items-center justify-center">
-              <FileText className="w-5 h-5 text-sidebar-primary-foreground" />
-            </div>
+            <img src={logoAviva} alt="Igreja Evangélica Aviva" className="w-10 h-10 rounded-lg object-contain" />
             <div>
               <h2 className="text-sm font-bold text-sidebar-foreground">Igreja AVIVA</h2>
               <p className="text-xs text-sidebar-foreground/60">Gerador de Atas <span className="opacity-50">v{APP_VERSION}</span></p>
@@ -44,9 +42,7 @@ export function AppSidebar() {
           </div>
         )}
         {collapsed && (
-          <div className="w-10 h-10 rounded-lg bg-sidebar-primary flex items-center justify-center mx-auto">
-            <FileText className="w-5 h-5 text-sidebar-primary-foreground" />
-          </div>
+          <img src={logoAviva} alt="Igreja Evangélica Aviva" className="w-10 h-10 rounded-lg object-contain mx-auto" />
         )}
       </SidebarHeader>
       <SidebarContent>

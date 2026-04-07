@@ -114,28 +114,33 @@ export function useAtaStore() {
     let texto = '';
     texto += `ATA DE ASSEMBLEIA ${d.tipoAssembleia.toUpperCase()} DA IGREJA EVANGÉLICA AVIVA, EM FLORESTA, SÃO FRANCISCO DE ITABAPOANA (RJ), NA FORMA ABAIXO:\n\n`;
     texto += `Aos ${formatDate(d.dataReuniao)}, às ${d.horaInicio || '___'}h, `;
-    texto += `no templo da Igreja Evangélica AVIVA, ${d.localReuniao || '___'}, `;
-    texto += `reuniu-se a Assembleia ${d.tipoAssembleia} da Igreja Evangélica AVIVA`;
+    texto += `no templo da IGREJA EVANGÉLICA AVIVA, situada na ${d.localReuniao || '___'}, `;
+    texto += `reuniram-se, em Assembleia ${d.tipoAssembleia}, os membros ativos desta igreja`;
 
     if (d.semQuorum) {
       texto += `. Não havendo quórum na primeira chamada, foi realizada segunda chamada às ${d.horaSegundaChamada || '___'}h`;
     }
 
-    texto += `, sob a presidência d${artigo(d.pastorDirigente)} ${cargo(d.pastorDirigente)} ${d.pastorDirigente || '___'}`;
-    texto += `, tendo como redator${artigo(d.nomeSecretario) === 'a' ? 'a' : ''} da ata ${artigo(d.nomeSecretario)} ${cargo(d.nomeSecretario)} ${d.nomeSecretario || '___'}`;
-    texto += `, para tratar dos seguintes assuntos: ${d.assuntosPrincipais || '___'}.\n\n`;
+    texto += `, sob a direção d${artigo(d.pastorDirigente)} ${cargo(d.pastorDirigente)} ${d.pastorDirigente || '___'}`;
+    texto += `, para deliberar sobre ${d.assuntosPrincipais || '___'}.\n\n`;
+
+    // Chamada e abertura
+    texto += `Após ter feito a chamada dos membros presentes, e havendo quórum suficiente, `;
+    texto += `${artigo(d.pastorDirigente)} ${cargo(d.pastorDirigente)} ${d.pastorDirigente || '___'} declara instalada a assembleia e abertos os trabalhos.`;
 
     if (d.palavraInicial) {
-      texto += `A reunião foi aberta com a leitura de ${d.palavraInicial}`;
+      texto += ` Seguindo com a leitura de ${d.palavraInicial}`;
       if (d.hinoHarpa) texto += ` e o canto do hino ${d.hinoHarpa}`;
-      texto += `, seguida de oração.\n\n`;
+      texto += `, apresentando uma breve palavra sobre esta porção bíblica.`;
     }
+
+    texto += ` Em seguida, convida ${artigo(d.nomeSecretario) === 'a' ? 'a' : 'o'} ${cargo(d.nomeSecretario)} ${d.nomeSecretario || '___'} para ler a ata do mês anterior`;
 
     // Ata anterior
     if (d.aprovacaoAtaAnterior === 'unanimidade') {
-      texto += `A ata da reunião anterior foi lida e aprovada por unanimidade.\n\n`;
+      texto += `, sendo a mesma aprovada por todos os presentes.\n\n`;
     } else {
-      texto += `A ata da reunião anterior foi lida. ${artigoMaiusc(d.ressalvaMembro)} membro ${d.ressalvaMembro || '___'} apresentou ressalvas: "${d.ressalvaMotivos || '___'}". `;
+      texto += `. ${artigoMaiusc(d.ressalvaMembro)} membro ${d.ressalvaMembro || '___'} apresentou ressalvas: "${d.ressalvaMotivos || '___'}". `;
       texto += `Foram prestados os seguintes esclarecimentos: "${d.ressalvaEsclarecimentos || '___'}". `;
       if (d.ressalvaPosicaoFinal === 'retirou') {
         texto += `Após os esclarecimentos, ${artigo(d.ressalvaMembro)} membro retirou a ressalva e a ata foi aprovada.\n\n`;
@@ -144,50 +149,42 @@ export function useAtaStore() {
       }
     }
 
-    // Relatório financeiro
+    // Relatório financeiro (sem título de seção)
     const renderMes = (mes: DadosFinanceiros) => {
-      return `referente ao mês de ${mes.nome || '___'} de ${mes.ano || '___'}: ` +
-        `Caixa Inicial: ${mes.caixaInicial || 'R$0,00'}, ` +
-        `Entradas: ${mes.entradas || 'R$0,00'}, ` +
-        `Saídas: ${mes.saidas || 'R$0,00'}, ` +
-        `Caixa Final: ${mes.caixaFinal || 'R$0,00'}`;
+      return `referente ao mês de ${mes.nome || '___'} de ${mes.ano || '___'}, foi de ${mes.caixaInicial || 'R$0,00'} (caixa inicial), ` +
+        `a entrada de ${mes.entradas || 'R$0,00'}, ` +
+        `saída de ${mes.saidas || 'R$0,00'} ` +
+        `e tendo, como caixa final, a quantia de ${mes.caixaFinal || 'R$0,00'}`;
     };
 
-    texto += `RELATÓRIO FINANCEIRO\n\n`;
-    texto += `${artigoMaiusc(d.tesoureira)} ${cargo(d.tesoureira)} ${d.tesoureira || '___'} apresentou o relatório financeiro ${renderMes(d.mes1)}. `;
+    texto += `Com a palavra, ${d.tesoureira || '___'} informou que o caixa inicial da igreja, do mês ${renderMes(d.mes1)}.\n\n`;
 
     if (d.incluirMes2 && d.relatorioMultiplosMeses) {
-      texto += `Também foi apresentado o relatório ${renderMes(d.mes2)}. `;
+      texto += `Ainda, ${artigo(d.tesoureira) === 'a' ? 'a mesma' : 'o mesmo'} apresentou o relatório financeiro ${renderMes(d.mes2)}.\n\n`;
     }
 
     if (d.aprovadorConselhoFiscal) {
-      texto += `O relatório foi conferido e aprovado pelo Conselho Fiscal, representado por ${d.aprovadorConselhoFiscal}. `;
+      texto += `Após a apresentação, houve total apoio do conselho fiscal, com a aprovação d${artigo(d.aprovadorConselhoFiscal)} ${d.aprovadorConselhoFiscal}`;
     }
 
     if (d.aprovacaoFinanceira) {
-      texto += `O relatório financeiro foi aprovado pela igreja por unanimidade.`;
+      texto += `, e passou para a igreja a aprovação do relatório e seu conteúdo, sendo o mesmo aprovado de forma unânime.`;
     }
     texto += `\n\n`;
 
-    // Deliberações
+    // Deliberações (sem título de seção, fluxo contínuo)
     if (d.deliberacoes.length > 0) {
-      texto += `OUTRAS DELIBERAÇÕES\n\n`;
+      texto += `Continuando com a palavra, `;
       d.deliberacoes.forEach((del, i) => {
         if (del.texto.trim()) {
-          texto += `${i + 1}. ${del.texto}\n\n`;
+          texto += `${del.texto} `;
         }
       });
-    }
-
-    // Presentes
-    if (membrosPresentes.length > 0) {
-      texto += `MEMBROS PRESENTES\n\n`;
-      texto += membrosPresentes.join(', ') + '.\n\n';
+      texto += `\n\n`;
     }
 
     // Encerramento
-    texto += `Nada mais havendo a tratar, a reunião foi encerrada às ${d.horaTermino || '___'}h, e eu, ${d.nomeSecretario || '___'}, lavrei a presente ata, que vai assinada por mim e pelo presidente da mesa.\n\n`;
-    texto += `${d.localReuniao || '___'}, ${formatDate(d.dataReuniao)}.\n\n\n`;
+    texto += `Feito isso, ${artigo(d.pastorDirigente)} ${cargo(d.pastorDirigente)} ${d.pastorDirigente || '___'} encerrou esta assembleia ${d.tipoAssembleia}, às ${d.horaTermino || '___'}h, orando e impetrando a bênção apostólica. E, por não haver mais nada a ser tratado, eu, ${d.nomeSecretario || '___'}, na qualidade de Secretário(a), lavrei a presente Ata, que após lida e aprovada pela Assembleia, vai assinada, por mim e pelo pastor.\n\n`;
     texto += `{{ASSINATURAS}}`;
 
     setAtaGerada(texto);
