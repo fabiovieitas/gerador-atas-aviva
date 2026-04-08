@@ -15,6 +15,7 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
   const [editing, setEditing] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
   const [fontSize, setFontSize] = useState(12);
+  const [houveEdicao, setHouveEdicao] = useState(false);
 
   // Sync content into the contentEditable div when switching to edit mode or when ataTexto changes externally
   useEffect(() => {
@@ -36,8 +37,21 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
     if (editorRef.current) {
       // Get the HTML content for rich formatting
       onUpdate(editorRef.current.innerText);
+      setHouveEdicao(true);
     }
   }, [onUpdate]);
+
+  const possuiAlteracoesNaoSalvas = editing && houveEdicao && !!ataTexto;
+
+  useEffect(() => {
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!possuiAlteracoesNaoSalvas) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [possuiAlteracoesNaoSalvas]);
 
   const copiar = () => {
     navigator.clipboard.writeText(ataTexto);
@@ -194,10 +208,33 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'ata_aviva.doc';
+    a.download = getNomeArquivoWord();
     a.click();
     URL.revokeObjectURL(url);
     toast.success("Arquivo Word baixado!");
+    setHouveEdicao(false);
+  };
+
+  const capitalize = (txt: string) => txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase();
+
+  const getNomeArquivoWord = () => {
+    const raw = editing && editorRef.current ? editorRef.current.innerText : ataTexto;
+    const tituloMatch = raw.match(/ATA DE ASSEMBLEIA\s+([A-ZÀ-Ú]+)/i);
+    const tipo = tituloMatch?.[1] ? capitalize(tituloMatch[1]) : "Ordinária";
+
+    const dataMatch = raw.match(/Aos\s+(\d{2})\s+de\s+([a-zà-úç]+)\s+de\s+(\d{4})/i);
+    if (dataMatch) {
+      const dia = dataMatch[1];
+      const mes = capitalize(dataMatch[2]);
+      const ano = dataMatch[3];
+      return `${dia} - Ata ${tipo} ${mes} de ${ano}.doc`;
+    }
+
+    const hoje = new Date();
+    const dia = String(hoje.getDate()).padStart(2, "0");
+    const mes = hoje.toLocaleDateString("pt-BR", { month: "long" });
+    const ano = String(hoje.getFullYear());
+    return `${dia} - Ata ${tipo} ${capitalize(mes)} de ${ano}.doc`;
   };
 
   const restaurar = () => {
@@ -207,6 +244,7 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
         editorRef.current.innerText = originalTexto;
       }
       toast.info("Texto restaurado ao original.");
+      setHouveEdicao(false);
     }
   };
 
@@ -246,7 +284,13 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
               type="button"
               variant={editing ? "default" : "secondary"}
               size="sm"
-              onClick={() => setEditing(!editing)}
+              onClick={() => {
+                if (editing && possuiAlteracoesNaoSalvas) {
+                  const confirmar = window.confirm("Você fez alterações e pode perder o que editou. Deseja continuar?");
+                  if (!confirmar) return;
+                }
+                setEditing(!editing);
+              }}
               className="gap-1"
             >
               {editing ? <><Eye className="w-3.5 h-3.5" /> Visualizar</> : <><Pencil className="w-3.5 h-3.5" /> Editar</>}
@@ -292,6 +336,11 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
             <ToolbarButton icon={Redo2} label="Refazer (Ctrl+Y)" onClick={() => execCmd('redo')} />
           </div>
         </TooltipProvider>
+      )}
+      {possuiAlteracoesNaoSalvas && (
+        <p className="text-xs text-warning mb-2">
+          Atenção: você está editando e tem alterações que ainda não foram exportadas.
+        </p>
       )}
 
       {editing ? (

@@ -203,15 +203,15 @@ export function useAtaStore() {
       texto += `, e passou para a igreja a aprovação do relatório e seu conteúdo, sendo o mesmo aprovado de forma unânime.`;
     }
 
-    // Deliberações — novo parágrafo (mudança de assunto)
-    if (d.deliberacoes.length > 0) {
+    // Oportunidades da palavra — novo parágrafo (registro de falas)
+    const oportunidades = d.deliberacoes.map((del) => del.texto.trim()).filter(Boolean);
+    if (oportunidades.length > 0) {
       texto += `\n\n`;
-      texto += `Continuando com a palavra, `;
-      d.deliberacoes.forEach((del) => {
-        if (del.texto.trim()) {
-          texto += `${del.texto} `;
-        }
+      texto += `No decorrer da assembleia, foram registradas oportunidades da palavra, conforme segue: `;
+      oportunidades.forEach((t, idx) => {
+        texto += idx === 0 ? `${t}` : ` ${t}`;
       });
+      texto += `.`;
     }
 
     // Encerramento — novo parágrafo (mudança de assunto)
@@ -295,7 +295,7 @@ export function useAtaStore() {
       tesoureira: 'Thayná Ramos da Silva Barbosa',
       palavraInicial: 'Salmos 133', hinoHarpa: 'H.C. 151',
       mes1: { nome: 'Outubro', ano: '2025', caixaInicial: 'R$2.345,67', entradas: 'R$3.210,00', saidas: 'R$1.890,50', caixaFinal: 'R$3.665,17' },
-      deliberacoes: [{ id: '1', texto: 'Fica aprovado o mutirão de limpeza para o próximo sábado.' }],
+      deliberacoes: [{ id: '1', texto: 'Com a oportunidade da palavra, foi anunciado o mutirão de limpeza para o próximo sábado.' }],
     }));
   }, [setMembros]);
 

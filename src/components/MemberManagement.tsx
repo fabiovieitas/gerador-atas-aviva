@@ -6,6 +6,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Trash2, Pencil, Users, UserPlus, ClipboardCheck } from "lucide-react";
+import { toast } from "sonner";
 import type { Membro } from "@/types/ata";
 
 interface Props {
@@ -16,15 +17,27 @@ interface Props {
   onUpdate: (i: number, m: Membro) => void;
   onTogglePresenca: (nome: string) => void;
   onSetPresentes: (nomes: string[]) => void;
+  showPresenceManager?: boolean;
 }
 
-export function MemberManagement({ membros, membrosPresentes, onAdd, onRemove, onUpdate, onTogglePresenca, onSetPresentes }: Props) {
+export function MemberManagement({
+  membros,
+  membrosPresentes,
+  onAdd,
+  onRemove,
+  onUpdate,
+  onTogglePresenca,
+  onSetPresentes,
+  showPresenceManager = true,
+}: Props) {
   const [nome, setNome] = useState('');
   const [cargo, setCargo] = useState('');
   const [genero, setGenero] = useState<'masculino' | 'feminino'>('masculino');
   const [editIndex, setEditIndex] = useState(-1);
   const [showMembers, setShowMembers] = useState(false);
   const [showPresenca, setShowPresenca] = useState(false);
+  const [filtroPresenca, setFiltroPresenca] = useState("");
+  const [modoLista, setModoLista] = useState<"todos" | "presentes" | "ausentes">("todos");
 
   const salvar = () => {
     if (!nome.trim()) return;
@@ -42,6 +55,22 @@ export function MemberManagement({ membros, membrosPresentes, onAdd, onRemove, o
     setNome(m.nome); setCargo(m.cargo); setGenero(m.genero);
     setEditIndex(i);
   };
+
+  const removerMembro = (i: number) => {
+    const nomeMembro = membros[i]?.nome;
+    const confirmar = window.confirm(`Deseja realmente apagar o membro "${nomeMembro}"?`);
+    if (!confirmar) return;
+    onRemove(i);
+    toast.success("Membro apagado com sucesso.");
+  };
+
+  const membrosFiltrados = membros
+    .filter((m) => m.nome.toLowerCase().includes(filtroPresenca.toLowerCase()))
+    .filter((m) => {
+      if (modoLista === "presentes") return membrosPresentes.includes(m.nome);
+      if (modoLista === "ausentes") return !membrosPresentes.includes(m.nome);
+      return true;
+    });
 
   return (
     <div className="flex gap-2 flex-wrap">
@@ -104,7 +133,7 @@ export function MemberManagement({ membros, membrosPresentes, onAdd, onRemove, o
                     <Button type="button" variant="ghost" size="sm" onClick={() => editar(i)} className="h-7 px-2">
                       <Pencil className="w-3.5 h-3.5" />
                     </Button>
-                    <Button type="button" variant="ghost" size="sm" onClick={() => onRemove(i)} className="h-7 px-2 text-destructive">
+                    <Button type="button" variant="ghost" size="sm" onClick={() => removerMembro(i)} className="h-7 px-2 text-destructive">
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   </div>
@@ -115,41 +144,66 @@ export function MemberManagement({ membros, membrosPresentes, onAdd, onRemove, o
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showPresenca} onOpenChange={setShowPresenca}>
-        <DialogTrigger asChild>
-          <Button type="button" variant="outline">
-            <ClipboardCheck className="w-4 h-4 mr-2" /> Presença ({membrosPresentes.length})
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Registrar Membros Presentes</DialogTitle>
-          </DialogHeader>
-          {membros.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Cadastre membros primeiro.</p>
-          ) : (
-            <div className="space-y-2 max-h-60 overflow-y-auto">
-              {membros.map(m => (
-                <div key={m.nome} className="flex items-center gap-3 p-2 rounded border">
-                  <Checkbox
-                    checked={membrosPresentes.includes(m.nome)}
-                    onCheckedChange={() => onTogglePresenca(m.nome)}
-                  />
-                  <span className="text-sm">{m.nome}</span>
+      {showPresenceManager && (
+        <Dialog open={showPresenca} onOpenChange={setShowPresenca}>
+          <DialogTrigger asChild>
+            <Button type="button" variant="outline">
+              <ClipboardCheck className="w-4 h-4 mr-2" /> Presença ({membrosPresentes.length})
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Registrar Membros Presentes</DialogTitle>
+            </DialogHeader>
+            {membros.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Cadastre membros primeiro.</p>
+            ) : (
+              <div className="space-y-2">
+                <Input
+                  value={filtroPresenca}
+                  onChange={(e) => setFiltroPresenca(e.target.value)}
+                  placeholder="Buscar membro..."
+                />
+                <div className="flex gap-2 flex-wrap">
+                  <Button type="button" variant={modoLista === "todos" ? "default" : "secondary"} size="sm" onClick={() => setModoLista("todos")}>
+                    Todos
+                  </Button>
+                  <Button type="button" variant={modoLista === "presentes" ? "default" : "secondary"} size="sm" onClick={() => setModoLista("presentes")}>
+                    Presentes
+                  </Button>
+                  <Button type="button" variant={modoLista === "ausentes" ? "default" : "secondary"} size="sm" onClick={() => setModoLista("ausentes")}>
+                    Ausentes
+                  </Button>
                 </div>
-              ))}
+              </div>
+            )}
+            {membros.length > 0 && (
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {membrosFiltrados.map(m => (
+                  <div key={m.nome} className="flex items-center gap-3 p-2 rounded border">
+                    <Checkbox
+                      checked={membrosPresentes.includes(m.nome)}
+                      onCheckedChange={() => onTogglePresenca(m.nome)}
+                    />
+                    <span className="text-sm">{m.nome}</span>
+                  </div>
+                ))}
+                {membrosFiltrados.length === 0 && (
+                  <p className="text-sm text-muted-foreground p-2">Nenhum membro encontrado com esse filtro.</p>
+                )}
+              </div>
+            )}
+            <div className="flex gap-2 mt-2">
+              <Button type="button" variant="secondary" size="sm" onClick={() => onSetPresentes(membros.map(m => m.nome))}>
+                Marcar Todos
+              </Button>
+              <Button type="button" variant="secondary" size="sm" onClick={() => onSetPresentes([])}>
+                Desmarcar Todos
+              </Button>
             </div>
-          )}
-          <div className="flex gap-2 mt-2">
-            <Button type="button" variant="secondary" size="sm" onClick={() => onSetPresentes(membros.map(m => m.nome))}>
-              Marcar Todos
-            </Button>
-            <Button type="button" variant="secondary" size="sm" onClick={() => onSetPresentes([])}>
-              Desmarcar Todos
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

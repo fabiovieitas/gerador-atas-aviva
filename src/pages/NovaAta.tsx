@@ -42,6 +42,13 @@ export function NovaAtaPage({ store }: Props) {
     toast.info("Dados de teste preenchidos!");
   };
 
+  const handleLimpar = () => {
+    const confirmar = window.confirm("Deseja limpar todos os dados desta ata?");
+    if (!confirmar) return;
+    store.limparFormulario();
+    toast.info("Formulário limpo.");
+  };
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Action bar */}
@@ -52,7 +59,7 @@ export function NovaAtaPage({ store }: Props) {
         <Button variant="secondary" onClick={handleTeste} className="gap-2">
           <FlaskConical className="w-4 h-4" /> Ata Teste
         </Button>
-        <Button variant="secondary" onClick={store.limparFormulario} className="gap-2">
+        <Button variant="secondary" onClick={handleLimpar} className="gap-2">
           <Eraser className="w-4 h-4" /> Limpar
         </Button>
       </div>
@@ -61,7 +68,7 @@ export function NovaAtaPage({ store }: Props) {
         <div className="section-card space-y-3">
           <h2 className="section-title">Como usar (rápido)</h2>
           <ol className="text-sm text-muted-foreground space-y-2 list-decimal pl-4">
-            <li>Preencha os dados nas abas (Informações, Financeiro, Presença e Secretário).</li>
+            <li>Preencha os dados nas abas (Informações, Financeiro, Oportunidades, Presença e Secretário).</li>
             <li>Clique em "Gerar Ata" para montar o texto automaticamente.</li>
             <li>Revise no editor, depois copie ou baixe em Word.</li>
           </ol>
@@ -102,7 +109,7 @@ export function NovaAtaPage({ store }: Props) {
           </TabsTrigger>
           <TabsTrigger value="deliberacoes" className="gap-1.5 text-xs sm:text-sm py-2.5">
             <MessageSquare className="w-4 h-4 shrink-0" />
-            <span className="hidden sm:inline">Deliberações</span>
+            <span className="hidden sm:inline">Oportunidades</span>
           </TabsTrigger>
           <TabsTrigger value="membros" className="gap-1.5 text-xs sm:text-sm py-2.5">
             <Users className="w-4 h-4 shrink-0" />
@@ -145,7 +152,13 @@ export function NovaAtaPage({ store }: Props) {
                 </p>
                 <div className="grid sm:grid-cols-2 gap-2">
                   {store.membros.map((m, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => store.togglePresenca(m.nome)}
+                      title="Clique para marcar ou desmarcar presença"
+                      className="flex w-full items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/40 transition-colors text-left"
+                    >
                       <div className="min-w-0">
                         <p className="font-medium text-foreground text-sm truncate">{m.nome}</p>
                         <p className="text-xs text-muted-foreground">{m.cargo}</p>
@@ -153,7 +166,7 @@ export function NovaAtaPage({ store }: Props) {
                       <span className={`text-xs px-2 py-1 rounded-full shrink-0 ${store.membrosPresentes.includes(m.nome) ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'}`}>
                         {store.membrosPresentes.includes(m.nome) ? '✓ Presente' : 'Ausente'}
                       </span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>

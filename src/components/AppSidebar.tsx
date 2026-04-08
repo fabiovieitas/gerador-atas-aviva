@@ -1,4 +1,4 @@
-import { Users, Clock, LayoutDashboard, Plus, Settings } from "lucide-react";
+import { Users, Clock, LayoutDashboard, Plus, Settings, CircleHelp } from "lucide-react";
 import { APP_VERSION } from "@/lib/version";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -22,6 +22,7 @@ const items = [
   { title: "Histórico", url: "/historico", icon: Clock },
   { title: "Membros", url: "/membros", icon: Users },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
+  { title: "Ajuda", url: "/ajuda", icon: CircleHelp },
 ];
 
 export function AppSidebar() {

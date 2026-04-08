@@ -6,6 +6,7 @@ import { NovaAtaPage } from "@/pages/NovaAta";
 import { HistoricoPage } from "@/pages/Historico";
 import { MembrosPage } from "@/pages/Membros";
 import { ConfiguracoesPage } from "@/pages/Configuracoes";
+import { AjudaPage } from "@/pages/Ajuda";
 
 export function AppRoutes() {
   const store = useAtaStore();
@@ -19,6 +20,7 @@ export function AppRoutes() {
         <Route path="/historico" element={<HistoricoPage store={store} onCarregar={() => navigate('/nova-ata')} />} />
         <Route path="/membros" element={<MembrosPage store={store} />} />
         <Route path="/configuracoes" element={<ConfiguracoesPage store={store} />} />
+        <Route path="/ajuda" element={<AjudaPage />} />
       </Routes>
     </DashboardLayout>
   );
