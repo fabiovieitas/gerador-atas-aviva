@@ -96,30 +96,7 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
   };
 
   const getSignatureHtml = () => {
-    const raw = editing && editorRef.current ? editorRef.current.innerText : ataTexto;
-    
-    // Extract secretary name and role: "eu, NOME, na qualidade de ROLE"
-    const matchSec = raw.match(/eu,\s*(.+?),\s*na qualidade de\s*(\S+)/);
-    const secretario = matchSec ? matchSec[1].trim() : '___';
-    const cargoSec = matchSec ? matchSec[2].trim() : 'Secretário(a)';
-    
-    // Extract pastor: "direção do/da CARGO NOME,"
-    const matchPres = raw.match(/direção d[oa]\s+(.+?),\s*para deliberar/);
-    let presidente = '___';
-    let cargoPres = '1º Dirigente e Pastor';
-    if (matchPres) {
-      const full = matchPres[1].trim();
-      // Split: cargo words (lowercase/numbers) vs name words (capitalized)
-      const words = full.split(/\s+/);
-      const nameStart = words.findIndex((w, i) => i > 0 && /^[A-ZÀ-Ú]/.test(w) && !/^\d/.test(w));
-      if (nameStart > 0) {
-        cargoPres = words.slice(0, nameStart).join(' ');
-        presidente = words.slice(nameStart).join(' ');
-      } else {
-        presidente = full;
-      }
-    }
-    
+    // Use the membros data passed via signatureData prop if available
     return `
       <table class="sig-table" width="100%" cellspacing="0" cellpadding="0">
         <tr>
@@ -127,8 +104,8 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
           <td class="sig-line">_________________________</td>
         </tr>
         <tr>
-          <td class="sig-info">${secretario}<br/>${cargoSec}</td>
-          <td class="sig-info">${presidente}<br/>${cargoPres}</td>
+          <td class="sig-info">{{SECRETARIO_NOME}}<br/>{{SECRETARIO_CARGO}}</td>
+          <td class="sig-info">{{PRESIDENTE_NOME}}<br/>{{PRESIDENTE_CARGO}}</td>
         </tr>
       </table>`; 
   };
