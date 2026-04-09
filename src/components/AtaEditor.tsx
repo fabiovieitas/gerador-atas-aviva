@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
-import type { Membro } from "@/types/ata";
+
 
 interface SignatureData {
   secretarioNome: string;
