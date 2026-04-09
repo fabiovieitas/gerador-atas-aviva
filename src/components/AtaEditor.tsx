@@ -4,14 +4,23 @@ import { toast } from "sonner";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import type { Membro } from "@/types/ata";
+
+interface SignatureData {
+  secretarioNome: string;
+  secretarioCargo: string;
+  presidenteNome: string;
+  presidenteCargo: string;
+}
 
 interface Props {
   ataTexto: string;
   onUpdate: (texto: string) => void;
   originalTexto?: string;
+  signatureData?: SignatureData;
 }
 
-export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
+export function AtaEditor({ ataTexto, onUpdate, originalTexto, signatureData }: Props) {
   const [editing, setEditing] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
   const [fontSize, setFontSize] = useState(12);
