@@ -105,7 +105,12 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto, signatureData }: 
   };
 
   const getSignatureHtml = () => {
-    // Use the membros data passed via signatureData prop if available
+    const sec = signatureData;
+    const secNome = sec?.secretarioNome || '___';
+    const secCargo = sec?.secretarioCargo || 'Secretário(a)';
+    const presNome = sec?.presidenteNome || '___';
+    const presCargo = sec?.presidenteCargo || '1º Dirigente e Pastor';
+    
     return `
       <table class="sig-table" width="100%" cellspacing="0" cellpadding="0">
         <tr>
@@ -113,8 +118,8 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto, signatureData }: 
           <td class="sig-line">_________________________</td>
         </tr>
         <tr>
-          <td class="sig-info">{{SECRETARIO_NOME}}<br/>{{SECRETARIO_CARGO}}</td>
-          <td class="sig-info">{{PRESIDENTE_NOME}}<br/>{{PRESIDENTE_CARGO}}</td>
+          <td class="sig-info">${secNome}<br/>${secCargo}</td>
+          <td class="sig-info">${presNome}<br/>${presCargo}</td>
         </tr>
       </table>`; 
   };
