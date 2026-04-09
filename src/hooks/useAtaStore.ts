@@ -203,15 +203,14 @@ export function useAtaStore() {
       texto += `, e passou para a igreja a aprovação do relatório e seu conteúdo, sendo o mesmo aprovado de forma unânime.`;
     }
 
-    // Oportunidades da palavra — novo parágrafo (registro de falas)
+    // Registros — continuação no mesmo parágrafo
     const oportunidades = d.deliberacoes.map((del) => del.texto.trim()).filter(Boolean);
     if (oportunidades.length > 0) {
-      texto += `\n\n`;
-      texto += `No decorrer da assembleia, foram registradas oportunidades da palavra, conforme segue: `;
-      oportunidades.forEach((t, idx) => {
-        texto += idx === 0 ? `${t}` : ` ${t}`;
+      texto += ` `;
+      oportunidades.forEach((t) => {
+        texto += `${t} `;
       });
-      texto += `.`;
+      texto = texto.trimEnd();
     }
 
     // Encerramento — novo parágrafo (mudança de assunto)

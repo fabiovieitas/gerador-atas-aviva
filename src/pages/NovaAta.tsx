@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, FlaskConical, Eraser, Info, DollarSign, MessageSquare, Users, PenTool, CheckCircle2, Circle } from "lucide-react";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
 interface Props {
   store: ReturnType<typeof useAtaStore>;
@@ -17,7 +17,7 @@ interface Props {
 
 export function NovaAtaPage({ store }: Props) {
   const [originalTexto, setOriginalTexto] = useState('');
-  const { formData, membrosPresentes } = store;
+  const { formData, membrosPresentes, membros } = store;
 
   const checklist = [
     { label: "Data da reunião preenchida", ok: Boolean(formData.dataReuniao) },
@@ -29,6 +29,17 @@ export function NovaAtaPage({ store }: Props) {
   ];
 
   const itensConferidos = checklist.filter((item) => item.ok).length;
+
+  const signatureData = useMemo(() => {
+    const secMembro = membros.find(m => m.nome === formData.nomeSecretario);
+    const presMembro = membros.find(m => m.nome === formData.pastorDirigente);
+    return {
+      secretarioNome: formData.nomeSecretario || '___',
+      secretarioCargo: secMembro?.cargo || (secMembro?.genero === 'feminino' ? 'Secretária' : 'Secretário'),
+      presidenteNome: formData.pastorDirigente || '___',
+      presidenteCargo: presMembro?.cargo || '1º Dirigente e Pastor',
+    };
+  }, [formData.nomeSecretario, formData.pastorDirigente, membros]);
 
   const handleGerar = () => {
     const texto = store.gerarAta();
@@ -53,13 +64,13 @@ export function NovaAtaPage({ store }: Props) {
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Action bar */}
       <div className="flex flex-wrap items-center gap-3">
-        <Button onClick={handleGerar} className="gap-2">
+        <Button onClick={handleGerar} className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md px-5 py-2.5 text-sm font-semibold">
           <FileText className="w-4 h-4" /> Gerar Ata
         </Button>
-        <Button variant="secondary" onClick={handleTeste} className="gap-2">
+        <Button variant="secondary" onClick={handleTeste} className="gap-2 px-4 py-2.5 text-sm">
           <FlaskConical className="w-4 h-4" /> Ata Teste
         </Button>
-        <Button variant="secondary" onClick={handleLimpar} className="gap-2">
+        <Button variant="outline" onClick={handleLimpar} className="gap-2 px-4 py-2.5 text-sm border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive">
           <Eraser className="w-4 h-4" /> Limpar
         </Button>
       </div>
@@ -68,26 +79,30 @@ export function NovaAtaPage({ store }: Props) {
         <div className="section-card space-y-3">
           <h2 className="section-title">Como usar (rápido)</h2>
           <ol className="text-sm text-muted-foreground space-y-2 list-decimal pl-4">
-            <li>Preencha os dados nas abas (Informações, Financeiro, Oportunidades, Presença e Secretário).</li>
-            <li>Clique em "Gerar Ata" para montar o texto automaticamente.</li>
+            <li>Preencha os dados nas abas abaixo.</li>
+            <li>Clique em <strong>"Gerar Ata"</strong> para montar o texto.</li>
             <li>Revise no editor, depois copie ou baixe em Word.</li>
           </ol>
+          <p className="text-xs text-muted-foreground/70 mt-2">💡 Dica: Use <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono">@</kbd> nos campos de texto para mencionar membros rapidamente.</p>
         </div>
 
         <div className="section-card space-y-3">
           <h2 className="section-title">Checklist antes de gerar</h2>
-          <p className="text-sm text-muted-foreground">
-            {itensConferidos} de {checklist.length} item(ns) conferido(s).
-          </p>
-          <div className="space-y-2">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="h-2 flex-1 rounded-full bg-muted overflow-hidden">
+              <div className="h-full rounded-full bg-success transition-all duration-300" style={{ width: `${(itensConferidos / checklist.length) * 100}%` }} />
+            </div>
+            <span className="text-xs font-semibold text-muted-foreground">{itensConferidos}/{checklist.length}</span>
+          </div>
+          <div className="space-y-1.5">
             {checklist.map((item) => (
               <div key={item.label} className="flex items-center gap-2 text-sm">
                 {item.ok ? (
                   <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
                 ) : (
-                  <Circle className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <Circle className="w-4 h-4 text-muted-foreground/40 shrink-0" />
                 )}
-                <span className={item.ok ? "text-foreground" : "text-muted-foreground"}>
+                <span className={item.ok ? "text-foreground" : "text-muted-foreground/60"}>
                   {item.label}
                 </span>
               </div>
@@ -98,39 +113,39 @@ export function NovaAtaPage({ store }: Props) {
 
       {/* Tabs */}
       <Tabs defaultValue="info" className="w-full">
-        <TabsList className="w-full grid grid-cols-5 h-auto">
-          <TabsTrigger value="info" className="gap-1.5 text-xs sm:text-sm py-2.5">
+        <TabsList className="w-full grid grid-cols-5 h-auto bg-muted/50 p-1 rounded-xl">
+          <TabsTrigger value="info" className="gap-1.5 text-xs sm:text-sm py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all">
             <Info className="w-4 h-4 shrink-0" />
             <span className="hidden sm:inline">Informações</span>
           </TabsTrigger>
-          <TabsTrigger value="financeiro" className="gap-1.5 text-xs sm:text-sm py-2.5">
+          <TabsTrigger value="financeiro" className="gap-1.5 text-xs sm:text-sm py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all">
             <DollarSign className="w-4 h-4 shrink-0" />
             <span className="hidden sm:inline">Financeiro</span>
           </TabsTrigger>
-          <TabsTrigger value="deliberacoes" className="gap-1.5 text-xs sm:text-sm py-2.5">
+          <TabsTrigger value="deliberacoes" className="gap-1.5 text-xs sm:text-sm py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all">
             <MessageSquare className="w-4 h-4 shrink-0" />
-            <span className="hidden sm:inline">Oportunidades</span>
+            <span className="hidden sm:inline">Registros</span>
           </TabsTrigger>
-          <TabsTrigger value="membros" className="gap-1.5 text-xs sm:text-sm py-2.5">
+          <TabsTrigger value="membros" className="gap-1.5 text-xs sm:text-sm py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all">
             <Users className="w-4 h-4 shrink-0" />
             <span className="hidden sm:inline">Presença</span>
           </TabsTrigger>
-          <TabsTrigger value="secretario" className="gap-1.5 text-xs sm:text-sm py-2.5">
+          <TabsTrigger value="secretario" className="gap-1.5 text-xs sm:text-sm py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all">
             <PenTool className="w-4 h-4 shrink-0" />
             <span className="hidden sm:inline">Secretário</span>
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="info">
-          <MeetingInfoSection data={store.formData} onUpdate={store.updateField} onSaveDefault={store.saveDefault} />
+          <MeetingInfoSection data={store.formData} onUpdate={store.updateField} onSaveDefault={store.saveDefault} membros={store.membros} />
         </TabsContent>
 
         <TabsContent value="financeiro">
-          <FinancialReportSection data={store.formData} onUpdate={store.updateField} onUpdateMes={store.updateMes} onSaveDefault={store.saveDefault} />
+          <FinancialReportSection data={store.formData} onUpdate={store.updateField} onUpdateMes={store.updateMes} onSaveDefault={store.saveDefault} membros={store.membros} />
         </TabsContent>
 
         <TabsContent value="deliberacoes">
-          <DeliberationsSection deliberacoes={store.deliberacoes} onAdd={store.addDeliberacao} onUpdate={store.updateDeliberacao} onRemove={store.removeDeliberacao} />
+          <DeliberationsSection deliberacoes={store.deliberacoes} onAdd={store.addDeliberacao} onUpdate={store.updateDeliberacao} onRemove={store.removeDeliberacao} membros={store.membros} />
         </TabsContent>
 
         <TabsContent value="membros">
@@ -157,13 +172,13 @@ export function NovaAtaPage({ store }: Props) {
                       type="button"
                       onClick={() => store.togglePresenca(m.nome)}
                       title="Clique para marcar ou desmarcar presença"
-                      className="flex w-full items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/40 transition-colors text-left"
+                      className={`flex w-full items-center justify-between p-3 rounded-lg border transition-all text-left ${store.membrosPresentes.includes(m.nome) ? 'bg-success/5 border-success/30 hover:bg-success/10' : 'bg-card hover:bg-muted/40'}`}
                     >
                       <div className="min-w-0">
                         <p className="font-medium text-foreground text-sm truncate">{m.nome}</p>
                         <p className="text-xs text-muted-foreground">{m.cargo}</p>
                       </div>
-                      <span className={`text-xs px-2 py-1 rounded-full shrink-0 ${store.membrosPresentes.includes(m.nome) ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'}`}>
+                      <span className={`text-xs px-2.5 py-1 rounded-full shrink-0 font-medium ${store.membrosPresentes.includes(m.nome) ? 'bg-success/15 text-success' : 'bg-muted text-muted-foreground'}`}>
                         {store.membrosPresentes.includes(m.nome) ? '✓ Presente' : 'Ausente'}
                       </span>
                     </button>
@@ -175,7 +190,7 @@ export function NovaAtaPage({ store }: Props) {
         </TabsContent>
 
         <TabsContent value="secretario">
-          <SecretarySection data={store.formData} onUpdate={store.updateField} onSaveDefault={store.saveDefault} />
+          <SecretarySection data={store.formData} onUpdate={store.updateField} onSaveDefault={store.saveDefault} membros={store.membros} />
         </TabsContent>
       </Tabs>
 
@@ -184,6 +199,7 @@ export function NovaAtaPage({ store }: Props) {
         ataTexto={store.ataGerada}
         onUpdate={store.setAtaGerada}
         originalTexto={originalTexto}
+        signatureData={signatureData}
       />
     </div>
   );

@@ -3,18 +3,20 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Save } from "lucide-react";
-import type { AtaFormData, DadosFinanceiros } from "@/types/ata";
+import { MemberMentionInput } from "@/components/MemberMentionInput";
+import type { AtaFormData, DadosFinanceiros, Membro } from "@/types/ata";
 
 interface Props {
   data: AtaFormData;
   onUpdate: <K extends keyof AtaFormData>(field: K, value: AtaFormData[K]) => void;
   onUpdateMes: (mes: 'mes1' | 'mes2', field: keyof DadosFinanceiros, value: string) => void;
   onSaveDefault: (key: string, value: string) => void;
+  membros: Membro[];
 }
 
 const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
-function MesFields({ mes, data, onChange, label }: { mes: DadosFinanceiros; data: AtaFormData; onChange: (field: keyof DadosFinanceiros, value: string) => void; label: string }) {
+function MesFields({ mes, onChange, label }: { mes: DadosFinanceiros; onChange: (field: keyof DadosFinanceiros, value: string) => void; label: string }) {
   return (
     <div className="p-4 rounded-lg border bg-card space-y-3">
       <h3 className="font-semibold text-foreground">{label}</h3>
@@ -55,15 +57,15 @@ function MesFields({ mes, data, onChange, label }: { mes: DadosFinanceiros; data
   );
 }
 
-export function FinancialReportSection({ data, onUpdate, onUpdateMes, onSaveDefault }: Props) {
+export function FinancialReportSection({ data, onUpdate, onUpdateMes, onSaveDefault, membros }: Props) {
   return (
     <div className="section-card">
       <h2 className="section-title">Relatório Financeiro</h2>
 
       <div className="mb-4">
-        <Label className="form-label">Tesoureira Responsável</Label>
+        <Label className="form-label">Tesoureiro(a) Responsável</Label>
         <div className="flex gap-2">
-          <Input value={data.tesoureira} onChange={e => onUpdate('tesoureira', e.target.value)} placeholder="Nome da Tesoureira" />
+          <MemberMentionInput value={data.tesoureira} onChange={v => onUpdate('tesoureira', v)} membros={membros} placeholder="Digite @ para buscar membros" />
           <Button type="button" variant="outline" size="icon" onClick={() => onSaveDefault('tesoureira', data.tesoureira)}>
             <Save className="w-3.5 h-3.5" />
           </Button>
@@ -82,7 +84,7 @@ export function FinancialReportSection({ data, onUpdate, onUpdateMes, onSaveDefa
         </div>
       )}
 
-      <MesFields mes={data.mes1} data={data} onChange={(f, v) => onUpdateMes('mes1', f, v)} label="Mês 1 do Relatório" />
+      <MesFields mes={data.mes1} onChange={(f, v) => onUpdateMes('mes1', f, v)} label="Mês 1 do Relatório" />
 
       {data.relatorioMultiplosMeses && (
         <div className="mt-4">
@@ -91,14 +93,14 @@ export function FinancialReportSection({ data, onUpdate, onUpdateMes, onSaveDefa
             <Label htmlFor="incluirMes2" className="font-normal">Incluir Mês 2</Label>
           </div>
           {data.incluirMes2 && (
-            <MesFields mes={data.mes2} data={data} onChange={(f, v) => onUpdateMes('mes2', f, v)} label="Mês 2 do Relatório" />
+            <MesFields mes={data.mes2} onChange={(f, v) => onUpdateMes('mes2', f, v)} label="Mês 2 do Relatório" />
           )}
         </div>
       )}
 
       <div className="mt-4">
         <Label className="form-label">Aprovador do Conselho Fiscal</Label>
-        <Input value={data.aprovadorConselhoFiscal} onChange={e => onUpdate('aprovadorConselhoFiscal', e.target.value)} placeholder="Nome do aprovador" />
+        <MemberMentionInput value={data.aprovadorConselhoFiscal} onChange={v => onUpdate('aprovadorConselhoFiscal', v)} membros={membros} placeholder="Digite @ para buscar membros" />
       </div>
 
       <div className="flex items-center gap-2 mt-4">

@@ -5,15 +5,18 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Save, Clock } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
-import type { AtaFormData } from "@/types/ata";
+import { MemberMentionInput } from "@/components/MemberMentionInput";
+import { MemberMentionTextarea } from "@/components/MemberMentionTextarea";
+import type { AtaFormData, Membro } from "@/types/ata";
 
 interface Props {
   data: AtaFormData;
   onUpdate: <K extends keyof AtaFormData>(field: K, value: AtaFormData[K]) => void;
   onSaveDefault: (key: string, value: string) => void;
+  membros: Membro[];
 }
 
-export function MeetingInfoSection({ data, onUpdate, onSaveDefault }: Props) {
+export function MeetingInfoSection({ data, onUpdate, onSaveDefault, membros }: Props) {
   const now = () => new Date().toTimeString().slice(0, 5);
 
   return (
@@ -74,21 +77,33 @@ export function MeetingInfoSection({ data, onUpdate, onSaveDefault }: Props) {
       )}
 
       <div className="mt-4 space-y-4">
-        {[
-          { label: 'Pastor Dirigente', field: 'pastorDirigente' as const, placeholder: 'Nome completo do Pastor Dirigente' },
-          { label: 'Local da Reunião', field: 'localReuniao' as const, placeholder: 'Local da reunião' },
-          { label: 'Assuntos Principais', field: 'assuntosPrincipais' as const, placeholder: 'Ex: situação financeira, recepção de novos membros' },
-        ].map(item => (
-          <div key={item.field}>
-            <Label className="form-label">{item.label}</Label>
-            <div className="flex gap-2">
-              <Input value={data[item.field] as string} onChange={e => onUpdate(item.field, e.target.value)} placeholder={item.placeholder} />
-              <Button type="button" variant="outline" size="icon" onClick={() => onSaveDefault(item.field, data[item.field] as string)} title="Salvar como padrão">
-                <Save className="w-3.5 h-3.5" />
-              </Button>
-            </div>
+        <div>
+          <Label className="form-label">Pastor Dirigente</Label>
+          <div className="flex gap-2">
+            <MemberMentionInput value={data.pastorDirigente} onChange={v => onUpdate('pastorDirigente', v)} membros={membros} placeholder="Digite @ para buscar membros" />
+            <Button type="button" variant="outline" size="icon" onClick={() => onSaveDefault('pastorDirigente', data.pastorDirigente)} title="Salvar como padrão">
+              <Save className="w-3.5 h-3.5" />
+            </Button>
           </div>
-        ))}
+        </div>
+        <div>
+          <Label className="form-label">Local da Reunião</Label>
+          <div className="flex gap-2">
+            <Input value={data.localReuniao} onChange={e => onUpdate('localReuniao', e.target.value)} placeholder="Local da reunião" />
+            <Button type="button" variant="outline" size="icon" onClick={() => onSaveDefault('localReuniao', data.localReuniao)} title="Salvar como padrão">
+              <Save className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        </div>
+        <div>
+          <Label className="form-label">Assuntos Principais</Label>
+          <div className="flex gap-2">
+            <Input value={data.assuntosPrincipais} onChange={e => onUpdate('assuntosPrincipais', e.target.value)} placeholder="Ex: situação financeira, recepção de novos membros" />
+            <Button type="button" variant="outline" size="icon" onClick={() => onSaveDefault('assuntosPrincipais', data.assuntosPrincipais)} title="Salvar como padrão">
+              <Save className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        </div>
 
         <div>
           <Label className="form-label">Palavra Inicial (Ex: Salmo 133)</Label>
@@ -118,7 +133,7 @@ export function MeetingInfoSection({ data, onUpdate, onSaveDefault }: Props) {
         <div className="mt-3 p-4 rounded-lg border border-warning/30 bg-warning/5 space-y-3">
           <div>
             <Label className="form-label">Nome do Membro com Ressalva</Label>
-            <Input value={data.ressalvaMembro} onChange={e => onUpdate('ressalvaMembro', e.target.value)} />
+            <MemberMentionInput value={data.ressalvaMembro} onChange={v => onUpdate('ressalvaMembro', v)} membros={membros} placeholder="Digite @ para buscar membros" />
           </div>
           <div>
             <Label className="form-label">Motivos da Ressalva</Label>

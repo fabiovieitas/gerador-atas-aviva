@@ -1,22 +1,23 @@
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Save } from "lucide-react";
-import type { AtaFormData } from "@/types/ata";
+import { MemberMentionInput } from "@/components/MemberMentionInput";
+import type { AtaFormData, Membro } from "@/types/ata";
 
 interface Props {
   data: AtaFormData;
   onUpdate: <K extends keyof AtaFormData>(field: K, value: AtaFormData[K]) => void;
   onSaveDefault: (key: string, value: string) => void;
+  membros: Membro[];
 }
 
-export function SecretarySection({ data, onUpdate, onSaveDefault }: Props) {
+export function SecretarySection({ data, onUpdate, onSaveDefault, membros }: Props) {
   return (
     <div className="section-card">
       <h2 className="section-title">Redator(a) da Ata</h2>
       <Label className="form-label">Nome do Redator(a)</Label>
       <div className="flex gap-2">
-        <Input value={data.nomeSecretario} onChange={e => onUpdate('nomeSecretario', e.target.value)} placeholder="Nome completo" />
+        <MemberMentionInput value={data.nomeSecretario} onChange={v => onUpdate('nomeSecretario', v)} membros={membros} placeholder="Digite @ para buscar membros" />
         <Button type="button" variant="outline" size="icon" onClick={() => onSaveDefault('nomeSecretario', data.nomeSecretario)}>
           <Save className="w-3.5 h-3.5" />
         </Button>

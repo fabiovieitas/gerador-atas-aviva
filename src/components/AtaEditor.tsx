@@ -5,13 +5,22 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 
+
+interface SignatureData {
+  secretarioNome: string;
+  secretarioCargo: string;
+  presidenteNome: string;
+  presidenteCargo: string;
+}
+
 interface Props {
   ataTexto: string;
   onUpdate: (texto: string) => void;
   originalTexto?: string;
+  signatureData?: SignatureData;
 }
 
-export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
+export function AtaEditor({ ataTexto, onUpdate, originalTexto, signatureData }: Props) {
   const [editing, setEditing] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
   const [fontSize, setFontSize] = useState(12);
@@ -96,29 +105,11 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
   };
 
   const getSignatureHtml = () => {
-    const raw = editing && editorRef.current ? editorRef.current.innerText : ataTexto;
-    
-    // Extract secretary name and role: "eu, NOME, na qualidade de ROLE"
-    const matchSec = raw.match(/eu,\s*(.+?),\s*na qualidade de\s*(\S+)/);
-    const secretario = matchSec ? matchSec[1].trim() : '___';
-    const cargoSec = matchSec ? matchSec[2].trim() : 'Secretário(a)';
-    
-    // Extract pastor: "direção do/da CARGO NOME,"
-    const matchPres = raw.match(/direção d[oa]\s+(.+?),\s*para deliberar/);
-    let presidente = '___';
-    let cargoPres = '1º Dirigente e Pastor';
-    if (matchPres) {
-      const full = matchPres[1].trim();
-      // Split: cargo words (lowercase/numbers) vs name words (capitalized)
-      const words = full.split(/\s+/);
-      const nameStart = words.findIndex((w, i) => i > 0 && /^[A-ZÀ-Ú]/.test(w) && !/^\d/.test(w));
-      if (nameStart > 0) {
-        cargoPres = words.slice(0, nameStart).join(' ');
-        presidente = words.slice(nameStart).join(' ');
-      } else {
-        presidente = full;
-      }
-    }
+    const sec = signatureData;
+    const secNome = sec?.secretarioNome || '___';
+    const secCargo = sec?.secretarioCargo || 'Secretário(a)';
+    const presNome = sec?.presidenteNome || '___';
+    const presCargo = sec?.presidenteCargo || '1º Dirigente e Pastor';
     
     return `
       <table class="sig-table" width="100%" cellspacing="0" cellpadding="0">
@@ -127,8 +118,8 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto }: Props) {
           <td class="sig-line">_________________________</td>
         </tr>
         <tr>
-          <td class="sig-info">${secretario}<br/>${cargoSec}</td>
-          <td class="sig-info">${presidente}<br/>${cargoPres}</td>
+          <td class="sig-info">${secNome}<br/>${secCargo}</td>
+          <td class="sig-info">${presNome}<br/>${presCargo}</td>
         </tr>
       </table>`; 
   };
