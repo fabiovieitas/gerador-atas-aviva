@@ -35,9 +35,9 @@ export function AppSidebar() {
       <SidebarHeader className="p-4">
         {!collapsed && (
           <div className="flex items-center gap-3">
-            <img src={logoAviva} alt="Igreja Evangélica Aviva" className="w-10 h-10 rounded-lg object-contain" />
+            <img src={logoAviva} alt="Igreja Evangélica Aviva" className="w-11 h-11 rounded-lg object-contain" />
             <div>
-              <h2 className="text-sm font-bold text-sidebar-foreground">Igreja AVIVA</h2>
+              <h2 className="text-base font-bold text-sidebar-foreground">Igreja AVIVA</h2>
               <p className="text-xs text-sidebar-foreground/60">Gerador de Atas <span className="opacity-50">v{APP_VERSION}</span></p>
             </div>
           </div>
@@ -48,19 +48,19 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Menu</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-xs uppercase tracking-wider text-sidebar-foreground/40 mb-1">Menu</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="space-y-1">
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton asChild className="h-11">
                     <NavLink
                       to={item.url}
                       end={item.url === "/"}
-                      className="hover:bg-sidebar-accent/50"
-                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                      className="hover:bg-sidebar-accent/50 rounded-lg px-3 py-2.5 text-[0.9rem]"
+                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-semibold"
                     >
-                      <item.icon className="mr-2 h-4 w-4" />
+                      <item.icon className="mr-3 h-5 w-5" />
                       {!collapsed && <span>{item.title}</span>}
                     </NavLink>
                   </SidebarMenuButton>
