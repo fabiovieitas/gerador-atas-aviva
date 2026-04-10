@@ -109,7 +109,9 @@ export function MemberMentionTextarea({ value, onChange, membros, placeholder, r
               className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between hover:bg-accent/10 transition-colors ${i === selectedIdx ? "bg-accent/10" : ""}`}
             >
               <span className="font-medium text-foreground">{m.nome}</span>
-              {m.cargo && <span className="text-xs text-muted-foreground ml-2">{m.cargo}</span>}
+              <span className="text-xs text-muted-foreground ml-2">
+                {m.cargo || (m.genero === 'feminino' ? 'Irmã' : 'Irmão')}
+              </span>
             </button>
           ))}
         </div>

@@ -18,9 +18,11 @@ interface Props {
   onUpdate: (texto: string) => void;
   originalTexto?: string;
   signatureData?: SignatureData;
+  onVerificar?: () => void;
+  verificando?: boolean;
 }
 
-export function AtaEditor({ ataTexto, onUpdate, originalTexto, signatureData }: Props) {
+export function AtaEditor({ ataTexto, onUpdate, originalTexto, signatureData, onVerificar, verificando }: Props) {
   const [editing, setEditing] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
   const [fontSize, setFontSize] = useState(12);
@@ -327,6 +329,23 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto, signatureData }: 
             <ToolbarButton icon={Redo2} label="Refazer (Ctrl+Y)" onClick={() => execCmd('redo')} />
           </div>
         </TooltipProvider>
+      )}
+
+      {/* AI Verify button inside editor when there's text */}
+      {ataTexto && onVerificar && (
+        <div className="flex items-center gap-2 mb-3">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={onVerificar}
+            disabled={verificando}
+            className="gap-1.5 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300"
+          >
+            {verificando ? <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <span className="text-sm">🔍</span>}
+            {verificando ? 'Verificando...' : 'Verificar Texto (IA)'}
+          </Button>
+        </div>
       )}
       {possuiAlteracoesNaoSalvas && (
         <p className="text-xs text-warning mb-2">
