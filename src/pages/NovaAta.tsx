@@ -239,6 +239,8 @@ export function NovaAtaPage({ store }: Props) {
         onUpdate={store.setAtaGerada}
         originalTexto={originalTexto}
         signatureData={signatureData}
+        onVerificar={handleVerificar}
+        verificando={verificando}
       />
     </div>
   );
