@@ -28,7 +28,9 @@ export function MemberMentionInput({ value, onChange, membros, placeholder, clas
     const atIdx = before.lastIndexOf("@");
     if (atIdx >= 0 && (atIdx === 0 || before[atIdx - 1] === " ")) {
       const query = before.slice(atIdx + 1).toLowerCase();
-      const matches = membros.filter(m => m.nome.toLowerCase().includes(query));
+      const matches = membros
+        .filter(m => m.nome.toLowerCase().includes(query))
+        .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
       if (matches.length > 0) {
         setFiltered(matches);
         setMentionStart(atIdx);
@@ -40,15 +42,24 @@ export function MemberMentionInput({ value, onChange, membros, placeholder, clas
     setShowSuggestions(false);
   }, [membros, onChange]);
 
-  const selectMember = useCallback((nome: string) => {
+  const selectMember = useCallback((membro: Membro) => {
     const before = value.slice(0, mentionStart);
     const cursor = inputRef.current?.selectionStart ?? value.length;
     const after = value.slice(cursor);
-    const newVal = before + nome + after;
+    // Insert with title: "o 1º Dirigente Nome" or "a irmã Nome"
+    let ref = '';
+    if (membro.cargo) {
+      const art = membro.genero === 'feminino' ? 'a' : 'o';
+      ref = `${art} ${membro.cargo} ${membro.nome}`;
+    } else {
+      const titulo = membro.genero === 'feminino' ? 'a irmã' : 'o irmão';
+      ref = `${titulo} ${membro.nome}`;
+    }
+    const newVal = before + ref + after;
     onChange(newVal);
     setShowSuggestions(false);
     setTimeout(() => {
-      const pos = before.length + nome.length;
+      const pos = before.length + ref.length;
       inputRef.current?.setSelectionRange(pos, pos);
       inputRef.current?.focus();
     }, 0);
@@ -64,7 +75,7 @@ export function MemberMentionInput({ value, onChange, membros, placeholder, clas
       setSelectedIdx(i => Math.max(i - 1, 0));
     } else if (e.key === "Enter" || e.key === "Tab") {
       e.preventDefault();
-      selectMember(filtered[selectedIdx].nome);
+      selectMember(filtered[selectedIdx]);
     } else if (e.key === "Escape") {
       setShowSuggestions(false);
     }
@@ -96,7 +107,7 @@ export function MemberMentionInput({ value, onChange, membros, placeholder, clas
             <button
               key={m.nome}
               type="button"
-              onMouseDown={() => selectMember(m.nome)}
+              onMouseDown={() => selectMember(m)}
               className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between hover:bg-accent/10 transition-colors ${i === selectedIdx ? "bg-accent/10" : ""}`}
             >
               <span className="font-medium text-foreground">{m.nome}</span>

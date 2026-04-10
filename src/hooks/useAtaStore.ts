@@ -160,10 +160,12 @@ export function useAtaStore() {
     // Chamada e abertura — mesmo parágrafo
     texto += `Após ter feito a chamada dos membros presentes, e havendo quórum suficiente, ${refMembro(d.pastorDirigente)} declara instalada a assembleia e abertos os trabalhos.`;
 
-    if (d.palavraInicial) {
-      texto += ` Seguindo com a leitura de ${d.palavraInicial}`;
-      if (d.hinoHarpa) texto += ` e o canto do hino ${d.hinoHarpa}`;
-      texto += `, apresentando uma breve palavra sobre esta porção bíblica.`;
+    if (d.hinoHarpa && d.palavraInicial) {
+      texto += ` Seguindo com o canto do hino ${d.hinoHarpa} e a leitura de ${d.palavraInicial}, apresentando uma breve palavra sobre esta porção bíblica.`;
+    } else if (d.hinoHarpa) {
+      texto += ` Seguindo com o canto do hino ${d.hinoHarpa}.`;
+    } else if (d.palavraInicial) {
+      texto += ` Seguindo com a leitura de ${d.palavraInicial}, apresentando uma breve palavra sobre esta porção bíblica.`;
     }
 
     texto += ` Em seguida, convida ${refMembro(d.nomeSecretario)} para ler a ata do mês anterior`;
@@ -292,6 +294,8 @@ export function useAtaStore() {
       dataReuniao: '2025-11-08', horaInicio: '19:30', horaTermino: '21:00',
       pastorDirigente: 'Airton Siqueira', nomeSecretario: 'Adlai Brum Siqueira Marques',
       tesoureira: 'Thayná Ramos da Silva Barbosa',
+      localReuniao: 'Rua Principal, nº 100, Floresta, São Francisco de Itabapoana/RJ',
+      assuntosPrincipais: 'assuntos gerais da igreja',
       palavraInicial: 'Salmos 133', hinoHarpa: 'H.C. 151',
       mes1: { nome: 'Outubro', ano: '2025', caixaInicial: 'R$2.345,67', entradas: 'R$3.210,00', saidas: 'R$1.890,50', caixaFinal: 'R$3.665,17' },
       deliberacoes: [{ id: '1', texto: 'Com a oportunidade da palavra, foi anunciado o mutirão de limpeza para o próximo sábado.' }],

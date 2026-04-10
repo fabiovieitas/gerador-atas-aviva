@@ -27,7 +27,9 @@ export function MemberMentionTextarea({ value, onChange, membros, placeholder, r
     const atIdx = before.lastIndexOf("@");
     if (atIdx >= 0 && (atIdx === 0 || /\s/.test(before[atIdx - 1]))) {
       const query = before.slice(atIdx + 1).toLowerCase();
-      const matches = membros.filter(m => m.nome.toLowerCase().includes(query));
+      const matches = membros
+        .filter(m => m.nome.toLowerCase().includes(query))
+        .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
       if (matches.length > 0) {
         setFiltered(matches);
         setMentionStart(atIdx);
@@ -39,15 +41,23 @@ export function MemberMentionTextarea({ value, onChange, membros, placeholder, r
     setShowSuggestions(false);
   }, [membros, onChange]);
 
-  const selectMember = useCallback((nome: string) => {
+  const selectMember = useCallback((membro: Membro) => {
     const before = value.slice(0, mentionStart);
     const cursor = textareaRef.current?.selectionStart ?? value.length;
     const after = value.slice(cursor);
-    const newVal = before + nome + after;
+    let ref = '';
+    if (membro.cargo) {
+      const art = membro.genero === 'feminino' ? 'a' : 'o';
+      ref = `${art} ${membro.cargo} ${membro.nome}`;
+    } else {
+      const titulo = membro.genero === 'feminino' ? 'a irmã' : 'o irmão';
+      ref = `${titulo} ${membro.nome}`;
+    }
+    const newVal = before + ref + after;
     onChange(newVal);
     setShowSuggestions(false);
     setTimeout(() => {
-      const pos = before.length + nome.length;
+      const pos = before.length + ref.length;
       textareaRef.current?.setSelectionRange(pos, pos);
       textareaRef.current?.focus();
     }, 0);
@@ -63,7 +73,7 @@ export function MemberMentionTextarea({ value, onChange, membros, placeholder, r
       setSelectedIdx(i => Math.max(i - 1, 0));
     } else if (e.key === "Enter" && filtered.length > 0) {
       e.preventDefault();
-      selectMember(filtered[selectedIdx].nome);
+      selectMember(filtered[selectedIdx]);
     } else if (e.key === "Escape") {
       setShowSuggestions(false);
     }
@@ -95,7 +105,7 @@ export function MemberMentionTextarea({ value, onChange, membros, placeholder, r
             <button
               key={m.nome}
               type="button"
-              onMouseDown={() => selectMember(m.nome)}
+              onMouseDown={() => selectMember(m)}
               className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between hover:bg-accent/10 transition-colors ${i === selectedIdx ? "bg-accent/10" : ""}`}
             >
               <span className="font-medium text-foreground">{m.nome}</span>
