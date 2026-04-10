@@ -138,9 +138,10 @@ export function useAtaStore() {
       return `${titulo} ${nome}`;
     };
 
-    // Qualidade for encerramento (Secretário/Secretária based on gender)
+    // Qualidade for encerramento — uses registered cargo if available
     const qualidadeSecretario = (nome: string) => {
       const m = getMembro(nome);
+      if (m?.cargo) return m.cargo;
       return m?.genero === 'feminino' ? 'Secretária' : 'Secretário';
     };
 
