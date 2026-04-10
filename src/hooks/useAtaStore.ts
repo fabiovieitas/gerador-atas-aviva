@@ -160,10 +160,12 @@ export function useAtaStore() {
     // Chamada e abertura — mesmo parágrafo
     texto += `Após ter feito a chamada dos membros presentes, e havendo quórum suficiente, ${refMembro(d.pastorDirigente)} declara instalada a assembleia e abertos os trabalhos.`;
 
-    if (d.palavraInicial) {
-      texto += ` Seguindo com a leitura de ${d.palavraInicial}`;
-      if (d.hinoHarpa) texto += ` e o canto do hino ${d.hinoHarpa}`;
-      texto += `, apresentando uma breve palavra sobre esta porção bíblica.`;
+    if (d.hinoHarpa && d.palavraInicial) {
+      texto += ` Seguindo com o canto do hino ${d.hinoHarpa} e a leitura de ${d.palavraInicial}, apresentando uma breve palavra sobre esta porção bíblica.`;
+    } else if (d.hinoHarpa) {
+      texto += ` Seguindo com o canto do hino ${d.hinoHarpa}.`;
+    } else if (d.palavraInicial) {
+      texto += ` Seguindo com a leitura de ${d.palavraInicial}, apresentando uma breve palavra sobre esta porção bíblica.`;
     }
 
     texto += ` Em seguida, convida ${refMembro(d.nomeSecretario)} para ler a ata do mês anterior`;
