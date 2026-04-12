@@ -7,10 +7,9 @@ import { MemberManagement } from "@/components/MemberManagement";
 import { AtaEditor } from "@/components/AtaEditor";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, FlaskConical, Eraser, Info, DollarSign, MessageSquare, Users, PenTool, CheckCircle2, Circle, SpellCheck, Loader2 } from "lucide-react";
+import { FileText, FlaskConical, Eraser, Info, DollarSign, MessageSquare, Users, PenTool, CheckCircle2, Circle } from "lucide-react";
 import { toast } from "sonner";
 import { useState, useMemo } from "react";
-import { supabase } from "@/integrations/supabase/client";
 
 interface Props {
   store: ReturnType<typeof useAtaStore>;
@@ -18,7 +17,6 @@ interface Props {
 
 export function NovaAtaPage({ store }: Props) {
   const [originalTexto, setOriginalTexto] = useState('');
-  const [verificando, setVerificando] = useState(false);
   const { formData, membrosPresentes, membros } = store;
 
   const checklist = [
@@ -55,34 +53,6 @@ export function NovaAtaPage({ store }: Props) {
     toast.success("Ata gerada e salva no histórico!");
   };
 
-  const handleVerificar = async () => {
-    if (!store.ataGerada) {
-      toast.error("Gere a ata primeiro para verificar o texto.");
-      return;
-    }
-    setVerificando(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('verificar-texto', {
-        body: { texto: store.ataGerada.replace('{{ASSINATURAS}}', '').trim() },
-      });
-      if (error) throw error;
-      if (data.correcoes && data.correcoes.length > 0) {
-        store.setAtaGerada(data.texto_corrigido + '\n\n{{ASSINATURAS}}');
-        toast.success(`${data.correcoes.length} correção(ões) aplicada(s)!`, {
-          description: data.correcoes.map((c: any) => `"${c.original}" → "${c.corrigido}" (${c.motivo})`).join('\n'),
-          duration: 10000,
-        });
-      } else {
-        toast.success("Nenhum erro encontrado! Texto aprovado. ✓");
-      }
-    } catch (e: any) {
-      console.error(e);
-      toast.error("Erro ao verificar texto. Tente novamente.");
-    } finally {
-      setVerificando(false);
-    }
-  };
-
   const handleTeste = () => {
     store.preencherTeste();
     toast.info("Dados de teste preenchidos!");
@@ -101,10 +71,6 @@ export function NovaAtaPage({ store }: Props) {
       <div className="flex flex-wrap items-center gap-3">
         <Button onClick={handleGerar} disabled={!checklistCompleto} className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md px-5 py-2.5 text-sm font-semibold disabled:opacity-50">
           <FileText className="w-4 h-4" /> Gerar Ata
-        </Button>
-        <Button variant="secondary" onClick={handleVerificar} disabled={verificando || !store.ataGerada} className="gap-2 px-4 py-2.5 text-sm bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 disabled:opacity-50">
-          {verificando ? <Loader2 className="w-4 h-4 animate-spin" /> : <SpellCheck className="w-4 h-4" />}
-          {verificando ? 'Verificando...' : 'Verificar Texto (IA)'}
         </Button>
         <Button variant="secondary" onClick={handleTeste} className="gap-2 px-4 py-2.5 text-sm">
           <FlaskConical className="w-4 h-4" /> Ata Teste
