@@ -100,7 +100,7 @@ export function FinancialReportSection({ data, onUpdate, onUpdateMes, onSaveDefa
 
       <div className="mt-4">
         <Label className="form-label">Aprovador do Conselho Fiscal</Label>
-        <MemberMentionInput value={data.aprovadorConselhoFiscal} onChange={v => onUpdate('aprovadorConselhoFiscal', v)} membros={membros} placeholder="Digite @ para buscar membros" />
+        <MemberMentionInput value={data.aprovadorConselhoFiscal} onChange={v => onUpdate('aprovadorConselhoFiscal', v)} membros={membros} placeholder="Digite @ para buscar membros" nameOnly />
       </div>
 
       <div className="flex items-center gap-2 mt-4">
