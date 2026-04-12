@@ -8,9 +8,10 @@ interface Props {
   membros: Membro[];
   placeholder?: string;
   className?: string;
+  nameOnly?: boolean;
 }
 
-export function MemberMentionInput({ value, onChange, membros, placeholder, className }: Props) {
+export function MemberMentionInput({ value, onChange, membros, placeholder, className, nameOnly }: Props) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filtered, setFiltered] = useState<Membro[]>([]);
   const [mentionStart, setMentionStart] = useState(-1);
@@ -46,9 +47,10 @@ export function MemberMentionInput({ value, onChange, membros, placeholder, clas
     const before = value.slice(0, mentionStart);
     const cursor = inputRef.current?.selectionStart ?? value.length;
     const after = value.slice(cursor);
-    // Insert with title: "o 1º Dirigente Nome" or "a irmã Nome"
     let ref = '';
-    if (membro.cargo) {
+    if (nameOnly) {
+      ref = membro.nome;
+    } else if (membro.cargo) {
       const art = membro.genero === 'feminino' ? 'a' : 'o';
       ref = `${art} ${membro.cargo} ${membro.nome}`;
     } else {
@@ -63,7 +65,7 @@ export function MemberMentionInput({ value, onChange, membros, placeholder, clas
       inputRef.current?.setSelectionRange(pos, pos);
       inputRef.current?.focus();
     }, 0);
-  }, [value, mentionStart, onChange]);
+  }, [value, mentionStart, onChange, nameOnly]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (!showSuggestions) return;

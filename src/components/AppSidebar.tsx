@@ -1,7 +1,8 @@
-import { Users, Clock, LayoutDashboard, Plus, Settings, CircleHelp } from "lucide-react";
+import { Users, Clock, LayoutDashboard, Plus, Settings, CircleHelp, LogOut } from "lucide-react";
 import { APP_VERSION } from "@/lib/version";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import logoAviva from "@/assets/logo_aviva.png";
 import {
   Sidebar,
@@ -13,6 +14,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarHeader,
+  SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
 
@@ -29,6 +31,7 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
+  const { profile, signOut } = useAuth();
 
   return (
     <Sidebar collapsible="icon">
@@ -70,6 +73,19 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter className="p-3 border-t border-sidebar-border">
+        {!collapsed && profile && (
+          <p className="text-xs text-sidebar-foreground/60 mb-2 truncate px-1">{profile.nome}</p>
+        )}
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton onClick={signOut} className="h-10 text-destructive hover:bg-destructive/10 rounded-lg">
+              <LogOut className="mr-3 h-4 w-4" />
+              {!collapsed && <span className="text-sm">Sair</span>}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
     </Sidebar>
   );
 }

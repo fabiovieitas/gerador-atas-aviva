@@ -80,7 +80,7 @@ export function MeetingInfoSection({ data, onUpdate, onSaveDefault, membros }: P
         <div>
           <Label className="form-label">Pastor Dirigente</Label>
           <div className="flex gap-2">
-            <MemberMentionInput value={data.pastorDirigente} onChange={v => onUpdate('pastorDirigente', v)} membros={membros} placeholder="Digite @ para buscar membros" />
+            <MemberMentionInput value={data.pastorDirigente} onChange={v => onUpdate('pastorDirigente', v)} membros={membros} placeholder="Digite @ para buscar membros" nameOnly />
             <Button type="button" variant="outline" size="icon" onClick={() => onSaveDefault('pastorDirigente', data.pastorDirigente)} title="Salvar como padrão">
               <Save className="w-3.5 h-3.5" />
             </Button>
