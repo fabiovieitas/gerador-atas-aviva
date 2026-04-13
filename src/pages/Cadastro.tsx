@@ -1,57 +1,115 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Link } from 'react-router-dom';
-import { UserPlus, Eye, EyeOff } from 'lucide-react';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { UserPlus, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
 
 export function CadastroPage() {
-  const [nome, setNome] = useState('');
-  const [email, setEmail] = useState('');
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get('token');
+  const navigate = useNavigate();
+
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [validating, setValidating] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [invite, setInvite] = useState<{ nome: string; email: string } | null>(null);
+  const [error, setError] = useState('');
 
-  const handleSignup = async (e: React.FormEvent) => {
+  useEffect(() => {
+    if (!token) {
+      setError('Link de convite inválido.');
+      setValidating(false);
+      return;
+    }
+
+    // Validate invite token
+    supabase
+      .from('invites')
+      .select('nome, email, used, expires_at')
+      .eq('token', token)
+      .single()
+      .then(({ data, error: err }) => {
+        if (err || !data) {
+          setError('Convite não encontrado.');
+        } else if (data.used) {
+          setError('Este convite já foi utilizado.');
+        } else if (new Date(data.expires_at) < new Date()) {
+          setError('Este convite expirou. Solicite um novo.');
+        } else {
+          setInvite({ nome: data.nome, email: data.email });
+        }
+        setValidating(false);
+      });
+  }, [token]);
+
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password.length < 6) {
       toast.error('A senha deve ter pelo menos 6 caracteres.');
       return;
     }
-    setLoading(true);
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { nome },
-        emailRedirectTo: window.location.origin,
-      },
-    });
-    setLoading(false);
-    if (error) {
-      toast.error(error.message);
-    } else {
-      setSuccess(true);
-      toast.success('Cadastro realizado! Verifique seu email para confirmar.');
+    if (password !== confirmPassword) {
+      toast.error('As senhas não coincidem.');
+      return;
     }
+
+    setLoading(true);
+    const { data, error: fnError } = await supabase.functions.invoke('register-invite', {
+      body: { token, password },
+    });
+
+    if (fnError || data?.error) {
+      toast.error(data?.error || 'Erro ao criar conta.');
+      setLoading(false);
+      return;
+    }
+
+    setSuccess(true);
+    setLoading(false);
   };
+
+  if (validating) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="text-center space-y-3">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
+          <p className="text-sm text-muted-foreground">Validando convite...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="w-full max-w-md section-card text-center space-y-4">
+          <AlertCircle className="w-12 h-12 text-destructive mx-auto" />
+          <h2 className="text-xl font-bold text-foreground">Convite Inválido</h2>
+          <p className="text-muted-foreground">{error}</p>
+          <Link to="/login">
+            <Button variant="outline" className="mt-4">Ir para login</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (success) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <div className="w-full max-w-md section-card text-center space-y-4">
-          <img src="/logo_aviva.png" alt="Igreja AVIVA" className="h-16 mx-auto" />
-          <h2 className="text-xl font-bold text-foreground">Verifique seu email</h2>
+          <UserPlus className="w-12 h-12 text-primary mx-auto" />
+          <h2 className="text-xl font-bold text-foreground">Conta criada!</h2>
           <p className="text-muted-foreground">
-            Enviamos um link de confirmação para <strong>{email}</strong>. 
-            Clique no link para ativar sua conta.
+            Sua conta foi criada com sucesso. Agora você pode fazer login.
           </p>
-          <Link to="/login">
-            <Button variant="outline" className="mt-4">Voltar ao login</Button>
-          </Link>
+          <Button onClick={() => navigate('/login')} className="mt-4">Ir para login</Button>
         </div>
       </div>
     );
@@ -65,14 +123,14 @@ export function CadastroPage() {
           <h1 className="text-2xl font-bold text-foreground font-display">Criar Conta</h1>
         </div>
 
-        <form onSubmit={handleSignup} className="section-card space-y-4">
+        <form onSubmit={handleRegister} className="section-card space-y-4">
           <div>
-            <Label className="form-label">Nome completo</Label>
-            <Input value={nome} onChange={e => setNome(e.target.value)} placeholder="Seu nome" required />
+            <Label className="form-label">Nome</Label>
+            <Input value={invite?.nome || ''} disabled className="bg-muted" />
           </div>
           <div>
             <Label className="form-label">Email</Label>
-            <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seu@email.com" required />
+            <Input value={invite?.email || ''} disabled className="bg-muted" />
           </div>
           <div>
             <Label className="form-label">Senha</Label>
@@ -89,17 +147,25 @@ export function CadastroPage() {
               </button>
             </div>
           </div>
+          <div>
+            <Label className="form-label">Confirmar Senha</Label>
+            <Input
+              type={showPassword ? 'text' : 'password'}
+              value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)}
+              placeholder="Repita a senha"
+              required
+            />
+          </div>
 
           <Button type="submit" className="w-full gap-2" disabled={loading}>
             <UserPlus className="w-4 h-4" />
-            {loading ? 'Criando conta...' : 'Cadastrar'}
+            {loading ? 'Criando conta...' : 'Criar minha conta'}
           </Button>
 
           <p className="text-center text-sm text-muted-foreground">
             Já tem conta?{' '}
-            <Link to="/login" className="text-primary hover:underline font-medium">
-              Entrar
-            </Link>
+            <Link to="/login" className="text-primary hover:underline font-medium">Entrar</Link>
           </p>
         </form>
       </div>

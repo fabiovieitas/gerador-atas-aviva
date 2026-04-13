@@ -66,16 +66,10 @@ export function LoginPage() {
             {loading ? 'Entrando...' : 'Entrar'}
           </Button>
 
-          <div className="text-center space-y-2">
+          <div className="text-center">
             <Link to="/esqueci-senha" className="text-sm text-primary hover:underline block">
               Esqueci minha senha
             </Link>
-            <p className="text-sm text-muted-foreground">
-              Não tem conta?{' '}
-              <Link to="/cadastro" className="text-primary hover:underline font-medium">
-                Cadastre-se
-              </Link>
-            </p>
           </div>
         </form>
       </div>

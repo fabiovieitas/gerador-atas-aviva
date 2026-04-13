@@ -1,4 +1,4 @@
-import { Users, Clock, LayoutDashboard, Plus, Settings, CircleHelp, LogOut } from "lucide-react";
+import { Users, Clock, LayoutDashboard, Plus, Settings, CircleHelp, LogOut, UserCog } from "lucide-react";
 import { APP_VERSION } from "@/lib/version";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -18,7 +18,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const items = [
+const baseItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Nova Ata", url: "/nova-ata", icon: Plus },
   { title: "Histórico", url: "/historico", icon: Clock },
@@ -31,7 +31,12 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
-  const { profile, signOut } = useAuth();
+  const { profile, isAdmin, isMaster, signOut } = useAuth();
+
+  const items = [
+    ...baseItems,
+    ...(isAdmin || isMaster ? [{ title: "Gerenciar Usuários", url: "/gerenciar-usuarios", icon: UserCog }] : []),
+  ];
 
   return (
     <Sidebar collapsible="icon">
