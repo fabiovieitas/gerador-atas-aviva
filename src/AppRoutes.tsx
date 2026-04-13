@@ -8,6 +8,7 @@ import { HistoricoPage } from "@/pages/Historico";
 import { MembrosPage } from "@/pages/Membros";
 import { ConfiguracoesPage } from "@/pages/Configuracoes";
 import { AjudaPage } from "@/pages/Ajuda";
+import { GerenciarUsuariosPage } from "@/pages/GerenciarUsuarios";
 import { LoginPage } from "@/pages/Login";
 import { CadastroPage } from "@/pages/Cadastro";
 import { EsqueciSenhaPage } from "@/pages/EsqueciSenha";
@@ -25,6 +26,7 @@ function ProtectedRoutes() {
         <Route path="/historico" element={<HistoricoPage store={store} onCarregar={() => navigate('/nova-ata')} />} />
         <Route path="/membros" element={<MembrosPage store={store} />} />
         <Route path="/configuracoes" element={<ConfiguracoesPage store={store} />} />
+        <Route path="/gerenciar-usuarios" element={<GerenciarUsuariosPage />} />
         <Route path="/ajuda" element={<AjudaPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
