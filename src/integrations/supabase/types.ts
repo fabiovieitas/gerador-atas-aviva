@@ -38,6 +38,53 @@ export type Database = {
         }
         Relationships: []
       }
+      invites: {
+        Row: {
+          church_id: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string
+          nome: string
+          role: Database["public"]["Enums"]["app_role"]
+          token: string
+          used: boolean
+        }
+        Insert: {
+          church_id?: string | null
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          invited_by: string
+          nome: string
+          role?: Database["public"]["Enums"]["app_role"]
+          token?: string
+          used?: boolean
+        }
+        Update: {
+          church_id?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string
+          nome?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          token?: string
+          used?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invites_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           church_id: string | null
