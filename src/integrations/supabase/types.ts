@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      atas: {
+        Row: {
+          church_id: string | null
+          conteudo: string | null
+          created_at: string
+          created_by: string
+          dados_json: Json | null
+          id: string
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          church_id?: string | null
+          conteudo?: string | null
+          created_at?: string
+          created_by: string
+          dados_json?: Json | null
+          id?: string
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          church_id?: string | null
+          conteudo?: string | null
+          created_at?: string
+          created_by?: string
+          dados_json?: Json | null
+          id?: string
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atas_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       churches: {
         Row: {
           cidade: string | null
