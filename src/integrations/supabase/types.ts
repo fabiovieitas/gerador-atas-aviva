@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      ata_edits: {
+        Row: {
+          ata_id: string
+          campo: string | null
+          created_at: string
+          descricao: string | null
+          edited_by: string
+          id: string
+          valor_anterior: string | null
+          valor_novo: string | null
+        }
+        Insert: {
+          ata_id: string
+          campo?: string | null
+          created_at?: string
+          descricao?: string | null
+          edited_by: string
+          id?: string
+          valor_anterior?: string | null
+          valor_novo?: string | null
+        }
+        Update: {
+          ata_id?: string
+          campo?: string | null
+          created_at?: string
+          descricao?: string | null
+          edited_by?: string
+          id?: string
+          valor_anterior?: string | null
+          valor_novo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ata_edits_ata_id_fkey"
+            columns: ["ata_id"]
+            isOneToOne: false
+            referencedRelation: "atas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       atas: {
         Row: {
           church_id: string | null
