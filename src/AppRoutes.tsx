@@ -23,7 +23,7 @@ function ProtectedRoutes() {
       <Routes>
         <Route path="/" element={<DashboardPage store={store} />} />
         <Route path="/nova-ata" element={<NovaAtaPage store={store} />} />
-        <Route path="/historico" element={<HistoricoPage store={store} onCarregar={() => navigate('/nova-ata')} />} />
+        <Route path="/historico" element={<HistoricoPage />} />
         <Route path="/membros" element={<MembrosPage store={store} />} />
         <Route path="/configuracoes" element={<ConfiguracoesPage store={store} />} />
         <Route path="/gerenciar-usuarios" element={<GerenciarUsuariosPage />} />
