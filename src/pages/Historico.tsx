@@ -1,92 +1,220 @@
-import { useAtaStore } from "@/hooks/useAtaStore";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileText, Trash2, Eye, Clock } from "lucide-react";
-import type { AtaHistorico } from "@/types/ata";
-import { useMemo, useState } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FileText, Trash2, Eye, Clock, User, Church, Filter } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
-interface Props {
-  store: ReturnType<typeof useAtaStore>;
-  onCarregar: () => void;
+interface AtaRow {
+  id: string;
+  titulo: string;
+  conteudo: string | null;
+  dados_json: any;
+  church_id: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  church_nome?: string;
+  autor_nome?: string;
 }
 
-export function HistoricoPage({ store, onCarregar }: Props) {
-  const [busca, setBusca] = useState("");
+interface ChurchOption {
+  id: string;
+  nome: string;
+}
 
-  const handleCarregar = (ata: AtaHistorico) => {
-    store.carregarDoHistorico(ata);
-    onCarregar();
+export function HistoricoPage() {
+  const { profile, isAdmin } = useAuth();
+  const navigate = useNavigate();
+  const [atas, setAtas] = useState<AtaRow[]>([]);
+  const [churches, setChurches] = useState<ChurchOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busca, setBusca] = useState("");
+  const [churchFilter, setChurchFilter] = useState<string>("all");
+
+  const fetchAtas = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("atas")
+        .select("*, churches(nome), profiles!atas_created_by_fkey(nome)")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        // Fallback without FK join
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from("atas")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (fallbackError) throw fallbackError;
+
+        // Fetch profiles and churches separately
+        const [profilesRes, churchesRes] = await Promise.all([
+          supabase.from("profiles").select("user_id, nome"),
+          supabase.from("churches").select("id, nome"),
+        ]);
+
+        const profileMap = new Map(
+          (profilesRes.data || []).map((p) => [p.user_id, p.nome])
+        );
+        const churchMap = new Map(
+          (churchesRes.data || []).map((c) => [c.id, c.nome])
+        );
+
+        const mapped = (fallbackData || []).map((a) => ({
+          ...a,
+          church_nome: a.church_id ? churchMap.get(a.church_id) || "—" : "—",
+          autor_nome: profileMap.get(a.created_by) || "—",
+        }));
+
+        setAtas(mapped);
+        if (churchesRes.data) setChurches(churchesRes.data);
+      } else {
+        // Parse joined data
+        const churchesRes = await supabase.from("churches").select("id, nome");
+        if (churchesRes.data) setChurches(churchesRes.data);
+
+        const mapped = (data || []).map((a: any) => ({
+          ...a,
+          church_nome: a.churches?.nome || "—",
+          autor_nome: a.profiles?.nome || "—",
+        }));
+        setAtas(mapped);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao carregar atas.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleExcluir = (ata: AtaHistorico) => {
+  useEffect(() => {
+    fetchAtas();
+  }, []);
+
+  const handleExcluir = async (ata: AtaRow) => {
     const confirmar = window.confirm(`Deseja realmente apagar a ata "${ata.titulo}"?`);
     if (!confirmar) return;
-    store.excluirDoHistorico(ata.id);
+
+    const { error } = await supabase.from("atas").delete().eq("id", ata.id);
+    if (error) {
+      toast.error("Erro ao apagar ata.");
+      return;
+    }
     toast.success("Ata apagada com sucesso.");
+    setAtas((prev) => prev.filter((a) => a.id !== ata.id));
   };
 
-  const historicoFiltrado = useMemo(() => {
+  const atasFiltradas = useMemo(() => {
+    let result = atas;
+
+    if (churchFilter !== "all") {
+      result = result.filter((a) => a.church_id === churchFilter);
+    }
+
     const termo = busca.trim().toLowerCase();
-    if (!termo) return store.historico;
-    return store.historico.filter((ata) => {
-      const dataFormatada = new Date(ata.geradoEm).toLocaleDateString("pt-BR");
-      return (
-        ata.titulo.toLowerCase().includes(termo) ||
-        ata.tipo.toLowerCase().includes(termo) ||
-        dataFormatada.toLowerCase().includes(termo)
-      );
-    });
-  }, [busca, store.historico]);
+    if (termo) {
+      result = result.filter((a) => {
+        const dataFormatada = new Date(a.created_at).toLocaleDateString("pt-BR");
+        return (
+          a.titulo.toLowerCase().includes(termo) ||
+          (a.church_nome || "").toLowerCase().includes(termo) ||
+          (a.autor_nome || "").toLowerCase().includes(termo) ||
+          dataFormatada.includes(termo)
+        );
+      });
+    }
+
+    return result;
+  }, [atas, busca, churchFilter]);
 
   return (
     <div className="max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-display font-bold text-foreground">Atas Anteriores</h1>
-          <p className="text-sm text-muted-foreground mt-1">{store.historico.length} ata(s) salva(s)</p>
+          <p className="text-sm text-muted-foreground mt-1">{atas.length} ata(s) no sistema</p>
         </div>
       </div>
 
-      {store.historico.length > 0 && (
-        <div className="mb-4">
-          <Input
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            placeholder="Buscar por título, tipo ou data..."
-          />
-        </div>
-      )}
+      {/* Filtros */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+        <Input
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          placeholder="Buscar por título, igreja, autor ou data..."
+          className="flex-1"
+        />
+        {isAdmin && churches.length > 1 && (
+          <Select value={churchFilter} onValueChange={setChurchFilter}>
+            <SelectTrigger className="w-full sm:w-[220px]">
+              <Filter className="w-4 h-4 mr-2" />
+              <SelectValue placeholder="Todas as igrejas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as igrejas</SelectItem>
+              {churches.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.nome}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </div>
 
-      {store.historico.length === 0 ? (
+      {loading ? (
+        <div className="section-card text-center py-16">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Carregando atas...</p>
+        </div>
+      ) : atas.length === 0 ? (
         <div className="section-card text-center py-16">
           <FileText className="w-12 h-12 mx-auto text-muted-foreground/40 mb-4" />
           <p className="text-muted-foreground">Nenhuma ata salva ainda.</p>
           <p className="text-sm text-muted-foreground mt-1">Gere uma ata na página "Nova Ata" para começar.</p>
         </div>
-      ) : historicoFiltrado.length === 0 ? (
+      ) : atasFiltradas.length === 0 ? (
         <div className="section-card text-center py-10">
           <p className="text-muted-foreground">Nenhuma ata encontrada para essa busca.</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {historicoFiltrado.map(ata => (
-            <div key={ata.id} className="section-card flex items-center justify-between gap-4">
-              <div className="min-w-0">
+          {atasFiltradas.map((ata) => (
+            <div key={ata.id} className="section-card flex items-start sm:items-center justify-between gap-4 flex-col sm:flex-row">
+              <div className="min-w-0 flex-1">
                 <h3 className="font-semibold text-foreground truncate">{ata.titulo}</h3>
-                <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                  <Clock className="w-3 h-3" />
-                  <span>Gerada em {new Date(ata.geradoEm).toLocaleString('pt-BR')}</span>
-                  <span>• {ata.membrosPresentes.length} presentes</span>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {new Date(ata.created_at).toLocaleDateString("pt-BR")}
+                  </span>
+                  {ata.church_nome && ata.church_nome !== "—" && (
+                    <span className="flex items-center gap-1">
+                      <Church className="w-3 h-3" />
+                      {ata.church_nome}
+                    </span>
+                  )}
+                  <span className="flex items-center gap-1">
+                    <User className="w-3 h-3" />
+                    {ata.autor_nome}
+                  </span>
                 </div>
               </div>
               <div className="flex gap-2 shrink-0">
-                <Button size="sm" onClick={() => handleCarregar(ata)}>
+                <Button size="sm" onClick={() => navigate(`/nova-ata?ata=${ata.id}`)}>
                   <Eye className="w-3.5 h-3.5 mr-1" /> Abrir
                 </Button>
-                <Button size="sm" variant="destructive" onClick={() => handleExcluir(ata)}>
-                  <Trash2 className="w-3.5 h-3.5" />
-                </Button>
+                {isAdmin && (
+                  <Button size="sm" variant="destructive" onClick={() => handleExcluir(ata)}>
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                )}
               </div>
             </div>
           ))}
