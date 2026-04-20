@@ -1,4 +1,4 @@
-import { Users, Clock, LayoutDashboard, Plus, Settings, CircleHelp, LogOut, UserCog } from "lucide-react";
+import { Users, Clock, LayoutDashboard, Plus, Settings, CircleHelp, LogOut, UserCog, ClipboardList } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { APP_VERSION } from "@/lib/version";
 import { NavLink } from "@/components/NavLink";
@@ -22,6 +22,7 @@ import {
 const baseItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Nova Ata", url: "/nova-ata", icon: Plus },
+  { title: "Pautas", url: "/pautas", icon: ClipboardList },
   { title: "Histórico", url: "/historico", icon: Clock },
   { title: "Membros", url: "/membros", icon: Users },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
