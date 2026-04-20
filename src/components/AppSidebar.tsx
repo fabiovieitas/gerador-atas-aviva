@@ -1,4 +1,5 @@
 import { Users, Clock, LayoutDashboard, Plus, Settings, CircleHelp, LogOut, UserCog } from "lucide-react";
+import { ThemeToggle } from "./ThemeToggle";
 import { APP_VERSION } from "@/lib/version";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -79,8 +80,16 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="p-3 border-t border-sidebar-border">
-        {!collapsed && profile && (
-          <p className="text-xs text-sidebar-foreground/60 mb-2 truncate px-1">{profile.nome}</p>
+        {!collapsed && (
+          <div className="flex items-center justify-between mb-2 px-1">
+            <p className="text-xs text-sidebar-foreground/60 truncate flex-1">{profile?.nome || ''}</p>
+            <ThemeToggle />
+          </div>
+        )}
+        {collapsed && (
+          <div className="flex justify-center mb-2">
+            <ThemeToggle />
+          </div>
         )}
         <SidebarMenu>
           <SidebarMenuItem>

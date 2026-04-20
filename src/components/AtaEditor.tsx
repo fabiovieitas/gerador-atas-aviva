@@ -1,9 +1,11 @@
 import { Button } from "@/components/ui/button";
-import { Copy, Download, Pencil, Eye, RotateCcw, Bold, Italic, Underline as UnderlineIcon, AlignLeft, AlignCenter, AlignJustify, Minus, Plus, Undo2, Redo2 } from "lucide-react";
+import { Copy, Download, Pencil, Eye, RotateCcw, Bold, Italic, Underline as UnderlineIcon, AlignLeft, AlignCenter, AlignJustify, Minus, Plus, Undo2, Redo2, FileText, FileDown } from "lucide-react";
 import { toast } from "sonner";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import html2pdf from 'html2pdf.js';
+import { supabase } from '@/integrations/supabase/client';
 
 
 interface SignatureData {
@@ -206,6 +208,76 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto, signatureData }: 
     setHouveEdicao(false);
   };
 
+  const baixarPDF = () => {
+    const content = buildWordHtml();
+    
+    const div = document.createElement('div');
+    div.innerHTML = content;
+    
+    div.style.padding = '10px 20px';
+    div.style.fontFamily = "'Times New Roman', Times, serif";
+    div.style.fontSize = '12pt';
+    div.style.lineHeight = '1.5';
+    div.style.color = '#000';
+    div.style.textAlign = 'justify';
+    
+    const titulos = div.querySelectorAll('.titulo');
+    titulos.forEach(t => {
+      (t as HTMLElement).style.fontWeight = 'bold';
+      (t as HTMLElement).style.textAlign = 'center';
+      (t as HTMLElement).style.marginBottom = '20px';
+    });
+
+    const assinaturas = div.querySelectorAll('.assinaturas');
+    assinaturas.forEach(a => {
+      (a as HTMLElement).style.marginTop = '60px';
+    });
+    
+    const opt = {
+      margin:       [20, 15, 20, 15],
+      filename:     getNomeArquivoWord().replace('.doc', '.pdf'),
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2 },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    toast.info("Gerando PDF, aguarde...");
+    html2pdf().from(div).set(opt).outputPdf('blob').then(async (pdfBlob: Blob) => {
+      // Baixar localmente
+      const url = URL.createObjectURL(pdfBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = opt.filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      
+      toast.success("PDF baixado localmente!");
+      setHouveEdicao(false);
+
+      // Salvar na Nuvem (Supabase)
+      try {
+        const filePath = `${Date.now()}_${opt.filename}`;
+        toast.info("Salvando cópia na nuvem...");
+        const { error } = await supabase.storage.from('atas_pdfs').upload(filePath, pdfBlob, {
+          contentType: 'application/pdf',
+          upsert: true
+        });
+        
+        if (error) {
+          console.error("Supabase Upload Error:", error);
+          toast.warning("Ata baixada, mas não salva na nuvem. Verifique o banco de dados.");
+        } else {
+          toast.success("Cópia salva com sucesso no Supabase Storage!");
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }).catch((err: any) => {
+      console.error(err);
+      toast.error("Erro ao gerar PDF.");
+    });
+  };
+
   const capitalize = (txt: string) => txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase();
 
   const getNomeArquivoWord = () => {
@@ -295,7 +367,10 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto, signatureData }: 
               <Copy className="w-3.5 h-3.5" /> Copiar
             </Button>
             <Button type="button" variant="outline" size="sm" onClick={baixarWord} className="gap-1">
-              <Download className="w-3.5 h-3.5" /> Word
+              <FileText className="w-3.5 h-3.5" /> Word
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={baixarPDF} className="gap-1 border-primary/30 text-primary hover:bg-primary/10">
+              <FileDown className="w-3.5 h-3.5" /> PDF
             </Button>
           </div>
         )}

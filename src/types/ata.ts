@@ -48,7 +48,7 @@ export interface AtaFormData {
 }
 
 export interface AtaHistorico {
-  id: number;
+  id: string | number;
   titulo: string;
   data: string;
   tipo: string;

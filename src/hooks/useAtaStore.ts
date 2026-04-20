@@ -1,7 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useLocalStorage } from './useLocalStorage';
 import type { Membro, AtaFormData, AtaHistorico, DadosFinanceiros, Deliberacao } from '@/types/ata';
 import { valorPorExtenso } from '@/lib/extenso';
+import { useAuth } from './useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 const emptyMes = (): DadosFinanceiros => ({
   nome: '', ano: new Date().getFullYear().toString(),
@@ -24,12 +27,43 @@ const initialFormData: AtaFormData = {
 };
 
 export function useAtaStore() {
+  const { profile, user } = useAuth();
   const [membros, setMembros] = useLocalStorage<Membro[]>('membrosAvivaAta', []);
   const [historico, setHistorico] = useLocalStorage<AtaHistorico[]>('atasAvivaHistorico2025', []);
   const [formData, setFormData] = useState<AtaFormData>(initialFormData);
   const [membrosPresentes, setMembrosPresentes] = useState<string[]>([]);
   const [ataGerada, setAtaGerada] = useState('');
   const [defaults, setDefaults] = useLocalStorage<Record<string, string>>('ataDefaults', {});
+
+  // Carregar dados da nuvem quando o usuário logar
+  useEffect(() => {
+    if (!profile?.church_id) return;
+    const fetchNuvem = async () => {
+      try {
+        const { data: mData } = await supabase.from('membros').select('*').eq('church_id', profile.church_id);
+        if (mData && mData.length > 0) {
+          setMembros(mData.map(m => ({ nome: m.nome, cargo: m.cargo || '', genero: m.genero as 'masculino' | 'feminino' })));
+        }
+
+        const { data: hData } = await supabase.from('atas').select('*').eq('church_id', profile.church_id).order('created_at', { ascending: false });
+        if (hData && hData.length > 0) {
+          setHistorico(hData.map(h => ({
+            id: h.id,
+            titulo: h.titulo,
+            data: (h.dados_json as any)?.dataReuniao || '',
+            tipo: (h.dados_json as any)?.tipoAssembleia || '',
+            dados: h.dados_json as any,
+            membrosPresentes: (h.dados_json as any)?.membrosPresentes || [],
+            ataTexto: h.conteudo || '',
+            geradoEm: h.created_at,
+          })));
+        }
+      } catch (err) {
+        console.error("Erro ao sincronizar com Supabase", err);
+      }
+    };
+    fetchNuvem();
+  }, [profile?.church_id, setMembros, setHistorico]);
 
   const updateField = useCallback(<K extends keyof AtaFormData>(field: K, value: AtaFormData[K]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -71,17 +105,33 @@ export function useAtaStore() {
     }));
   }, []);
 
-  const addMembro = useCallback((membro: Membro) => {
+  const addMembro = useCallback(async (membro: Membro) => {
     setMembros(prev => [...prev, membro]);
-  }, [setMembros]);
+    if (profile?.church_id) {
+      await supabase.from('membros').insert({
+        nome: membro.nome, cargo: membro.cargo, genero: membro.genero, church_id: profile.church_id
+      });
+    }
+  }, [setMembros, profile]);
 
-  const removeMembro = useCallback((index: number) => {
+  const removeMembro = useCallback(async (index: number) => {
+    const membro = membros[index];
     setMembros(prev => prev.filter((_, i) => i !== index));
-  }, [setMembros]);
+    if (profile?.church_id && membro) {
+      await supabase.from('membros').delete().eq('church_id', profile.church_id).eq('nome', membro.nome);
+    }
+  }, [membros, setMembros, profile]);
 
-  const updateMembro = useCallback((index: number, membro: Membro) => {
+  const updateMembro = useCallback(async (index: number, membro: Membro) => {
+    const membroAntigo = membros[index];
     setMembros(prev => prev.map((m, i) => i === index ? membro : m));
-  }, [setMembros]);
+    if (profile?.church_id && membroAntigo) {
+      await supabase.from('membros')
+        .update({ nome: membro.nome, cargo: membro.cargo, genero: membro.genero })
+        .eq('church_id', profile.church_id)
+        .eq('nome', membroAntigo.nome);
+    }
+  }, [membros, setMembros, profile]);
 
   const togglePresenca = useCallback((nome: string) => {
     setMembrosPresentes(prev =>
@@ -241,7 +291,19 @@ export function useAtaStore() {
       const filtered = prev.filter(a => !(a.data === d.dataReuniao && a.tipo === d.tipoAssembleia));
       return [novaAta, ...filtered];
     });
-  }, [formData, membrosPresentes, setHistorico]);
+
+    if (profile?.church_id && user) {
+      supabase.from('atas').insert({
+        titulo,
+        conteudo: texto,
+        dados_json: { ...d, membrosPresentes },
+        church_id: profile.church_id,
+        created_by: user.id
+      }).then(({ error }) => {
+        if (error) console.error("Erro ao salvar ata no Supabase:", error);
+      });
+    }
+  }, [formData, membrosPresentes, setHistorico, profile, user]);
 
   const carregarDoHistorico = useCallback((ata: AtaHistorico) => {
     setFormData(ata.dados);
@@ -249,9 +311,12 @@ export function useAtaStore() {
     setAtaGerada(ata.ataTexto);
   }, []);
 
-  const excluirDoHistorico = useCallback((id: number) => {
+  const excluirDoHistorico = useCallback(async (id: number | string) => {
     setHistorico(prev => prev.filter(a => a.id !== id));
-  }, [setHistorico]);
+    if (typeof id === 'string' && profile?.church_id) {
+      await supabase.from('atas').delete().eq('id', id);
+    }
+  }, [setHistorico, profile]);
 
   const limparFormulario = useCallback(() => {
     setFormData(initialFormData);
