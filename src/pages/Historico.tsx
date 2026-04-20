@@ -194,10 +194,10 @@ export function HistoricoPage() {
                 </div>
               </div>
               
-              <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 shrink-0 sm:min-w-[420px] justify-end">
                 <Dialog>
                   <DialogTrigger asChild>
-                    <Button size="sm" variant="outline" className="gap-1.5 border-primary/20 text-primary hover:bg-primary/5">
+                    <Button size="sm" variant="outline" className="gap-1.5 border-primary/20 text-primary hover:bg-primary/5 w-[100px]">
                       <FileText className="w-3.5 h-3.5" /> Ver Ata
                     </Button>
                   </DialogTrigger>
@@ -223,14 +223,14 @@ export function HistoricoPage() {
                   </DialogContent>
                 </Dialog>
 
-                <Button size="sm" onClick={() => navigate(`/nova-ata?ata=${ata.id}`)} variant="secondary">
+                <Button size="sm" onClick={() => navigate(`/nova-ata?ata=${ata.id}`)} variant="secondary" className="w-[85px]">
                   <Eye className="w-3.5 h-3.5 mr-1" /> Editar
                 </Button>
                 
-                {(ata.fotosAssinaturaUrls && ata.fotosAssinaturaUrls.length > 0) && (
+                {ata.fotosAssinaturaUrls && ata.fotosAssinaturaUrls.length > 0 ? (
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button size="sm" variant="outline" className="gap-1 border-cyan-500/20 text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-950/30">
+                      <Button size="sm" variant="outline" className="gap-1 border-cyan-500/20 text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-950/30 min-w-[125px]">
                         <ImageIcon className="w-3.5 h-3.5" /> Assinaturas ({ata.fotosAssinaturaUrls.length})
                       </Button>
                     </DialogTrigger>
@@ -261,6 +261,10 @@ export function HistoricoPage() {
                       </div>
                     </DialogContent>
                   </Dialog>
+                ) : (
+                  <Button size="sm" variant="outline" disabled className="gap-1 opacity-40 min-w-[125px]">
+                    <ImageIcon className="w-3.5 h-3.5" /> Sem Assinaturas
+                  </Button>
                 )}
 
                 {ata.dados_json?.membrosPresentes && (
