@@ -1,12 +1,14 @@
+import { useState } from "react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Save, Clock } from "lucide-react";
+import { Save, Clock, Image as ImageIcon, Upload, X, CheckCircle2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { MemberMentionInput } from "@/components/MemberMentionInput";
-import { MemberMentionTextarea } from "@/components/MemberMentionTextarea";
 import type { AtaFormData, Membro } from "@/types/ata";
 
 interface Props {
@@ -17,49 +19,121 @@ interface Props {
 }
 
 export function MeetingInfoSection({ data, onUpdate, onSaveDefault, membros }: Props) {
+  const [uploading, setUploading] = useState(false);
   const now = () => new Date().toTimeString().slice(0, 5);
 
-  return (
-    <div className="section-card">
-      <h2 className="section-title">Informações Gerais da Reunião</h2>
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-      <div className="grid md:grid-cols-2 gap-4">
-        <div>
-          <Label className="form-label">Data da Reunião<span className="required-mark">*</span></Label>
-          <Input type="date" value={data.dataReuniao} onChange={e => onUpdate('dataReuniao', e.target.value)} />
+    setUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `assinaturas/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('assinaturas_atas')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('assinaturas_atas')
+        .getPublicUrl(filePath);
+
+      onUpdate('fotoAssinaturaUrl', publicUrl);
+      toast.success("Foto da folha de assinaturas enviada!");
+    } catch (error: any) {
+      toast.error("Erro ao enviar foto: " + error.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removePhoto = () => {
+    onUpdate('fotoAssinaturaUrl', '');
+  };
+
+  return (
+    <div className="section-card space-y-6">
+      {/* Área de Upload com Destaque */}
+      <div className="p-6 rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 flex flex-col items-center justify-center text-center space-y-4">
+        <div className="space-y-1">
+          <h3 className="text-lg font-bold text-primary flex items-center justify-center gap-2">
+            <ImageIcon className="w-5 h-5" /> Folha de Assinaturas
+          </h3>
+          <p className="text-sm text-muted-foreground">Suba a foto da folha assinada pelos membros aqui</p>
         </div>
-        <div>
-          <Label className="form-label">Tipo de Assembleia<span className="required-mark">*</span></Label>
-          <RadioGroup value={data.tipoAssembleia} onValueChange={v => onUpdate('tipoAssembleia', v as any)} className="flex gap-4 mt-2">
-            <div className="flex items-center gap-2">
-              <RadioGroupItem value="Ordinária" id="ordinaria" />
-              <Label htmlFor="ordinaria" className="font-normal">Ordinária</Label>
+        
+        <div className="w-full max-w-md">
+          {data.fotoAssinaturaUrl ? (
+            <div className="relative aspect-video rounded-lg overflow-hidden border bg-background group shadow-lg">
+              <img src={data.fotoAssinaturaUrl} alt="Folha de assinaturas" className="w-full h-full object-contain" />
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                <Button size="sm" variant="destructive" onClick={removePhoto} className="gap-2">
+                  <X className="w-4 h-4" /> Remover Foto
+                </Button>
+              </div>
+              <div className="absolute top-3 right-3">
+                <CheckCircle2 className="w-6 h-6 text-success fill-white shadow-sm" />
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <RadioGroupItem value="Extraordinária" id="extraordinaria" />
-              <Label htmlFor="extraordinaria" className="font-normal">Extraordinária</Label>
+          ) : (
+            <div className="w-full h-32 flex flex-col items-center justify-center space-y-2 hover:bg-primary/10 transition-colors cursor-pointer relative rounded-lg border-2 border-primary/20 bg-background">
+              <input type="file" accept="image/*" onChange={handleFileUpload} disabled={uploading} className="absolute inset-0 opacity-0 cursor-pointer" />
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                {uploading ? <Upload className="w-6 h-6 text-primary animate-bounce" /> : <Upload className="w-6 h-6 text-primary" />}
+              </div>
+              <div>
+                <p className="text-sm font-bold text-foreground">{uploading ? 'Enviando imagem...' : 'Clique ou arraste a foto aqui'}</p>
+                <p className="text-xs text-muted-foreground">Tamanho máximo recomendado: 5MB</p>
+              </div>
             </div>
-          </RadioGroup>
+          )}
         </div>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4 mt-4">
-        <div>
-          <Label className="form-label">Hora de Início<span className="required-mark">*</span></Label>
-          <div className="flex gap-2">
-            <Input type="time" value={data.horaInicio} onChange={e => onUpdate('horaInicio', e.target.value)} />
-            <Button type="button" variant="secondary" size="sm" onClick={() => onUpdate('horaInicio', now())}>
-              <Clock className="w-3 h-3 mr-1" /> Agora
-            </Button>
+      <div className="space-y-4">
+        <h2 className="section-title">Informações Gerais da Reunião</h2>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <Label className="form-label">Data da Reunião<span className="required-mark">*</span></Label>
+            <Input type="date" value={data.dataReuniao} onChange={e => onUpdate('dataReuniao', e.target.value)} />
+          </div>
+          <div>
+            <Label className="form-label">Tipo de Assembleia<span className="required-mark">*</span></Label>
+            <RadioGroup value={data.tipoAssembleia} onValueChange={v => onUpdate('tipoAssembleia', v as any)} className="flex gap-4 mt-2">
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="Ordinária" id="ordinaria" />
+                <Label htmlFor="ordinaria" className="font-normal">Ordinária</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="Extraordinária" id="extraordinaria" />
+                <Label htmlFor="extraordinaria" className="font-normal">Extraordinária</Label>
+              </div>
+            </RadioGroup>
           </div>
         </div>
-        <div>
-          <Label className="form-label">Hora de Término<span className="required-mark">*</span></Label>
-          <div className="flex gap-2">
-            <Input type="time" value={data.horaTermino} onChange={e => onUpdate('horaTermino', e.target.value)} />
-            <Button type="button" variant="secondary" size="sm" onClick={() => onUpdate('horaTermino', now())}>
-              <Clock className="w-3 h-3 mr-1" /> Agora
-            </Button>
+
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <Label className="form-label">Hora de Início<span className="required-mark">*</span></Label>
+            <div className="flex gap-2">
+              <Input type="time" value={data.horaInicio} onChange={e => onUpdate('horaInicio', e.target.value)} />
+              <Button type="button" variant="secondary" size="sm" onClick={() => onUpdate('horaInicio', now())}>
+                <Clock className="w-3 h-3 mr-1" /> Agora
+              </Button>
+            </div>
+          </div>
+          <div>
+            <Label className="form-label">Hora de Término<span className="required-mark">*</span></Label>
+            <div className="flex gap-2">
+              <Input type="time" value={data.horaTermino} onChange={e => onUpdate('horaTermino', e.target.value)} />
+              <Button type="button" variant="secondary" size="sm" onClick={() => onUpdate('horaTermino', now())}>
+                <Clock className="w-3 h-3 mr-1" /> Agora
+              </Button>
+            </div>
           </div>
         </div>
       </div>

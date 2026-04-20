@@ -34,19 +34,32 @@ export function useAtaStore() {
   const [membrosPresentes, setMembrosPresentes] = useState<string[]>([]);
   const [ataGerada, setAtaGerada] = useState('');
   const [defaults, setDefaults] = useLocalStorage<Record<string, string>>('ataDefaults', {});
+  const [selectedChurchId, setSelectedChurchId] = useState<string | null>(null);
 
-  // Carregar dados da nuvem quando o usuário logar
+  // Define a igreja inicial baseada no perfil
   useEffect(() => {
-    if (!profile?.church_id) return;
+    if (profile?.church_id && !selectedChurchId) {
+      setSelectedChurchId(profile.church_id);
+    }
+  }, [profile?.church_id, selectedChurchId]);
+
+  // Carregar dados da nuvem quando a igreja selecionada mudar
+  useEffect(() => {
+    if (!selectedChurchId) return;
     const fetchNuvem = async () => {
       try {
-        const { data: mData } = await supabase.from('membros').select('*').eq('church_id', profile.church_id);
-        if (mData && mData.length > 0) {
-          setMembros(mData.map(m => ({ nome: m.nome, cargo: m.cargo || '', genero: m.genero as 'masculino' | 'feminino' })));
+        const { data: mData } = await supabase.from('membros').select('*').eq('church_id', selectedChurchId).order('nome');
+        if (mData) {
+          setMembros(mData.map(m => ({ 
+            nome: m.nome, 
+            cargo: m.cargo || '', 
+            genero: m.genero as 'masculino' | 'feminino',
+            created_at: m.created_at
+          })));
         }
 
-        const { data: hData } = await supabase.from('atas').select('*').eq('church_id', profile.church_id).order('created_at', { ascending: false });
-        if (hData && hData.length > 0) {
+        const { data: hData } = await supabase.from('atas').select('*').eq('church_id', selectedChurchId).order('created_at', { ascending: false });
+        if (hData) {
           setHistorico(hData.map(h => ({
             id: h.id,
             titulo: h.titulo,
@@ -56,6 +69,7 @@ export function useAtaStore() {
             membrosPresentes: (h.dados_json as any)?.membrosPresentes || [],
             ataTexto: h.conteudo || '',
             geradoEm: h.created_at,
+            fotoAssinaturaUrl: h.foto_assinatura_url || '',
           })));
         }
       } catch (err) {
@@ -63,7 +77,7 @@ export function useAtaStore() {
       }
     };
     fetchNuvem();
-  }, [profile?.church_id, setMembros, setHistorico]);
+  }, [selectedChurchId, setMembros, setHistorico]);
 
   const updateField = useCallback(<K extends keyof AtaFormData>(field: K, value: AtaFormData[K]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -286,6 +300,7 @@ export function useAtaStore() {
       id: Date.now(), titulo, data: d.dataReuniao, tipo: d.tipoAssembleia,
       dados: { ...d }, membrosPresentes: [...membrosPresentes],
       ataTexto: texto, geradoEm: new Date().toISOString(),
+      fotoAssinaturaUrl: d.fotoAssinaturaUrl,
     };
     setHistorico(prev => {
       const filtered = prev.filter(a => !(a.data === d.dataReuniao && a.tipo === d.tipoAssembleia));
@@ -298,7 +313,8 @@ export function useAtaStore() {
         conteudo: texto,
         dados_json: { ...d, membrosPresentes },
         church_id: profile.church_id,
-        created_by: user.id
+        created_by: user.id,
+        foto_assinatura_url: d.fotoAssinaturaUrl
       }).then(({ error }) => {
         if (error) console.error("Erro ao salvar ata no Supabase:", error);
       });
@@ -377,5 +393,6 @@ export function useAtaStore() {
     historico, salvarNoHistorico, carregarDoHistorico, excluirDoHistorico,
     limparFormulario, preencherTeste,
     defaults, saveDefault, loadDefaults,
+    selectedChurchId, setSelectedChurchId
   };
 }

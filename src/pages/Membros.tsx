@@ -1,21 +1,34 @@
 import { useAtaStore } from "@/hooks/useAtaStore";
 import { MemberManagement } from "@/components/MemberManagement";
 import { MemberUpload } from "@/components/MemberUpload";
-import { Users, Download, FileSpreadsheet } from "lucide-react";
+import { Users, Download, FileSpreadsheet, Church } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import type { Membro } from "@/types/ata";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Props {
   store: ReturnType<typeof useAtaStore>;
 }
 
 export function MembrosPage({ store }: Props) {
+  const { isAdmin } = useAuth();
+  const [churches, setChurches] = useState<{id: string, nome: string}[]>([]);
   const [filtroNomeRelatorio, setFiltroNomeRelatorio] = useState("");
   const [filtroAnoRelatorio, setFiltroAnoRelatorio] = useState("");
   const [filtroMesRelatorio, setFiltroMesRelatorio] = useState("");
+
+  useEffect(() => {
+    if (isAdmin) {
+      supabase.from('churches').select('id, nome').order('nome').then(({ data }) => {
+        if (data) setChurches(data);
+      });
+    }
+  }, [isAdmin]);
 
   const handleBulkImport = (novos: Membro[]) => {
     novos.forEach(m => store.addMembro(m));
@@ -85,16 +98,26 @@ export function MembrosPage({ store }: Props) {
 
     const gerarLinhas = (separador: "," | ";") => {
       const linhas: string[] = [`Data${separador}Tipo${separador}Título${separador}Nome${separador}Status`];
-      const membrosFiltrados = store.membros.filter((m) =>
-        !filtroNomeRelatorio || m.nome.toLowerCase().includes(filtroNomeRelatorio.toLowerCase())
-      );
-
+      
       atasFiltradas.forEach((ata) => {
-        const data = new Date(ata.geradoEm).toLocaleDateString("pt-BR");
+        const dataAta = new Date(ata.data);
+        const dataStr = new Date(ata.geradoEm).toLocaleDateString("pt-BR");
+        
+        // Membros filtrados pela data da ata (não existiam se criados depois)
+        const membrosNaEpoca = store.membros.filter(m => {
+          if (!m.created_at) return true;
+          const dataMembro = new Date(m.created_at);
+          return dataMembro <= dataAta;
+        });
+
+        const membrosFiltrados = membrosNaEpoca.filter((m) =>
+          !filtroNomeRelatorio || m.nome.toLowerCase().includes(filtroNomeRelatorio.toLowerCase())
+        );
+
         membrosFiltrados.forEach((m) => {
           const status = ata.membrosPresentes.includes(m.nome) ? "Presente" : "Ausente";
           linhas.push(
-            `"${data}"${separador}"${ata.tipo}"${separador}"${ata.titulo.replace(/"/g, '""')}"${separador}"${m.nome.replace(/"/g, '""')}"${separador}"${status}"`
+            `"${dataStr}"${separador}"${ata.tipo}"${separador}"${ata.titulo.replace(/"/g, '""')}"${separador}"${m.nome.replace(/"/g, '""')}"${separador}"${status}"`
           );
         });
       });
@@ -126,11 +149,7 @@ export function MembrosPage({ store }: Props) {
 
   const gerarRelatorioExcel = async () => {
     try {
-    const membrosFiltrados = store.membros.filter((m) =>
-      !filtroNomeRelatorio || m.nome.toLowerCase().includes(filtroNomeRelatorio.toLowerCase())
-    );
-
-    if (membrosFiltrados.length === 0 || atasFiltradas.length === 0) {
+    if (atasFiltradas.length === 0) {
       toast.info("Nenhum dado para gerar relatório com esses filtros.");
       return;
     }
@@ -155,7 +174,19 @@ export function MembrosPage({ store }: Props) {
     ].filter(Boolean).join(" | ");
 
     const secoesAta = atasFiltradas.map((ata) => {
-      const data = new Date(ata.geradoEm).toLocaleDateString("pt-BR");
+      const dataAta = new Date(ata.data);
+      const dataStr = new Date(ata.geradoEm).toLocaleDateString("pt-BR");
+      
+      const membrosNaEpoca = store.membros.filter(m => {
+        if (!m.created_at) return true;
+        const dataMembro = new Date(m.created_at);
+        return dataMembro <= dataAta;
+      });
+
+      const membrosFiltrados = membrosNaEpoca.filter((m) =>
+        !filtroNomeRelatorio || m.nome.toLowerCase().includes(filtroNomeRelatorio.toLowerCase())
+      );
+
       const linhasTabela = membrosFiltrados.map((m) => {
         const status = ata.membrosPresentes.includes(m.nome) ? "Presente" : "Ausente";
         const classeStatus = status === "Presente" ? "status-presente" : "status-ausente";
@@ -171,7 +202,7 @@ export function MembrosPage({ store }: Props) {
       const tituloSeguro = ata.titulo.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
       return `
         <div class="ata-bloco">
-          <p class="ata-cabecalho"><strong>Data:</strong> ${data} | <strong>Tipo:</strong> ${ata.tipo} | <strong>Ata:</strong> ${tituloSeguro}</p>
+          <p class="ata-cabecalho"><strong>Data:</strong> ${dataStr} | <strong>Tipo:</strong> ${ata.tipo} | <strong>Ata:</strong> ${tituloSeguro}</p>
           <table>
             <thead>
               <tr>
@@ -217,7 +248,7 @@ export function MembrosPage({ store }: Props) {
   </div>
 
   <p class="filtros"><strong>Filtros:</strong> ${filtrosAtivos || "Nenhum (mostrando tudo)"}</p>
-  <p class="resumo"><strong>Total de atas:</strong> ${atasFiltradas.length} | <strong>Total de membros no relatório:</strong> ${membrosFiltrados.length}</p>
+  <p class="resumo"><strong>Total de atas:</strong> ${atasFiltradas.length}</p>
 
   ${secoesAta}
 </body>
@@ -238,9 +269,28 @@ export function MembrosPage({ store }: Props) {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-display font-bold text-foreground">Membros</h1>
-        <p className="text-sm text-muted-foreground mt-1">{store.membros.length} membro(s) cadastrado(s)</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-display font-bold text-foreground">Membros</h1>
+          <p className="text-sm text-muted-foreground mt-1">{store.membros.length} membro(s) cadastrado(s)</p>
+        </div>
+        
+        {isAdmin && (
+          <div className="flex items-center gap-2 bg-card border p-2 rounded-lg shadow-sm">
+            <Church className="w-4 h-4 text-primary" />
+            <span className="text-xs font-semibold whitespace-nowrap">Igreja:</span>
+            <Select value={store.selectedChurchId || ''} onValueChange={store.setSelectedChurchId}>
+              <SelectTrigger className="w-48 h-8 text-xs">
+                <SelectValue placeholder="Selecione a igreja" />
+              </SelectTrigger>
+              <SelectContent>
+                {churches.map(c => (
+                  <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       <div className="section-card space-y-4">
@@ -341,11 +391,19 @@ export function MembrosPage({ store }: Props) {
         ) : (
           <div className="space-y-3">
             {atasFiltradas.map((ata) => {
-              const todosNomes = store.membros
+              const dataAta = new Date(ata.data);
+              
+              const todosNomesNaEpoca = store.membros
+                .filter(m => {
+                  if (!m.created_at) return true;
+                  const dataMembro = new Date(m.created_at);
+                  return dataMembro <= dataAta;
+                })
                 .map((m) => m.nome)
                 .filter((nome) => !filtroNomeRelatorio || nome.toLowerCase().includes(filtroNomeRelatorio.toLowerCase()));
-              const presentes = todosNomes.filter((nome) => ata.membrosPresentes.includes(nome));
-              const ausentes = todosNomes.filter((nome) => !ata.membrosPresentes.includes(nome));
+
+              const presentes = todosNomesNaEpoca.filter((nome) => ata.membrosPresentes.includes(nome));
+              const ausentes = todosNomesNaEpoca.filter((nome) => !ata.membrosPresentes.includes(nome));
 
               return (
                 <div key={ata.id} className="rounded-lg border p-3 bg-card space-y-2">
@@ -353,8 +411,8 @@ export function MembrosPage({ store }: Props) {
                   <p className="text-xs text-muted-foreground">
                     {new Date(ata.geradoEm).toLocaleString("pt-BR")} • {ata.tipo}
                   </p>
-                  <p className="text-xs"><strong>Presentes:</strong> {presentes.length ? presentes.join(", ") : "Nenhum"}</p>
-                  <p className="text-xs"><strong>Ausentes:</strong> {ausentes.length ? ausentes.join(", ") : "Nenhum"}</p>
+                  <p className="text-xs"><strong>Presentes ({presentes.length}):</strong> {presentes.length ? presentes.join(", ") : "Nenhum"}</p>
+                  <p className="text-xs"><strong>Ausentes ({ausentes.length}):</strong> {ausentes.length ? ausentes.join(", ") : "Nenhum"}</p>
                 </div>
               );
             })}

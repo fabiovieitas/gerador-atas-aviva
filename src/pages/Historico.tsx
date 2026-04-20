@@ -3,10 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Trash2, Eye, Clock, User, Church, Filter } from "lucide-react";
+import { FileText, Trash2, Eye, Clock, User, Church, Filter, Image as ImageIcon, Users, ExternalLink } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 interface AtaRow {
   id: string;
@@ -17,6 +18,7 @@ interface AtaRow {
   created_by: string;
   created_at: string;
   updated_at: string;
+  foto_assinatura_url?: string;
   church_nome?: string;
   autor_nome?: string;
 }
@@ -44,7 +46,6 @@ export function HistoricoPage() {
         .order("created_at", { ascending: false });
 
       if (error) {
-        // Fallback without FK join
         const { data: fallbackData, error: fallbackError } = await supabase
           .from("atas")
           .select("*")
@@ -52,18 +53,13 @@ export function HistoricoPage() {
 
         if (fallbackError) throw fallbackError;
 
-        // Fetch profiles and churches separately
         const [profilesRes, churchesRes] = await Promise.all([
           supabase.from("profiles").select("user_id, nome"),
           supabase.from("churches").select("id, nome"),
         ]);
 
-        const profileMap = new Map(
-          (profilesRes.data || []).map((p) => [p.user_id, p.nome])
-        );
-        const churchMap = new Map(
-          (churchesRes.data || []).map((c) => [c.id, c.nome])
-        );
+        const profileMap = new Map((profilesRes.data || []).map((p) => [p.user_id, p.nome]));
+        const churchMap = new Map((churchesRes.data || []).map((c) => [c.id, c.nome]));
 
         const mapped = (fallbackData || []).map((a) => ({
           ...a,
@@ -74,7 +70,6 @@ export function HistoricoPage() {
         setAtas(mapped);
         if (churchesRes.data) setChurches(churchesRes.data);
       } else {
-        // Parse joined data
         const churchesRes = await supabase.from("churches").select("id, nome");
         if (churchesRes.data) setChurches(churchesRes.data);
 
@@ -112,11 +107,9 @@ export function HistoricoPage() {
 
   const atasFiltradas = useMemo(() => {
     let result = atas;
-
     if (churchFilter !== "all") {
       result = result.filter((a) => a.church_id === churchFilter);
     }
-
     const termo = busca.trim().toLowerCase();
     if (termo) {
       result = result.filter((a) => {
@@ -129,25 +122,23 @@ export function HistoricoPage() {
         );
       });
     }
-
     return result;
   }, [atas, busca, churchFilter]);
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+    <div className="max-w-5xl mx-auto space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-display font-bold text-foreground">Atas Anteriores</h1>
+          <h1 className="text-2xl font-display font-bold text-foreground">Histórico de Atas</h1>
           <p className="text-sm text-muted-foreground mt-1">{atas.length} ata(s) no sistema</p>
         </div>
       </div>
 
-      {/* Filtros */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+      <div className="flex flex-col sm:flex-row gap-3">
         <Input
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
-          placeholder="Buscar por título, igreja, autor ou data..."
+          placeholder="Buscar por título, igreja ou data..."
           className="flex-1"
         />
         {isAdmin && churches.length > 1 && (
@@ -159,9 +150,7 @@ export function HistoricoPage() {
             <SelectContent>
               <SelectItem value="all">Todas as igrejas</SelectItem>
               {churches.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.nome}
-                </SelectItem>
+                <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -173,20 +162,15 @@ export function HistoricoPage() {
           <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-muted-foreground">Carregando atas...</p>
         </div>
-      ) : atas.length === 0 ? (
+      ) : atasFiltradas.length === 0 ? (
         <div className="section-card text-center py-16">
           <FileText className="w-12 h-12 mx-auto text-muted-foreground/40 mb-4" />
-          <p className="text-muted-foreground">Nenhuma ata salva ainda.</p>
-          <p className="text-sm text-muted-foreground mt-1">Gere uma ata na página "Nova Ata" para começar.</p>
-        </div>
-      ) : atasFiltradas.length === 0 ? (
-        <div className="section-card text-center py-10">
-          <p className="text-muted-foreground">Nenhuma ata encontrada para essa busca.</p>
+          <p className="text-muted-foreground">Nenhuma ata encontrada.</p>
         </div>
       ) : (
         <div className="space-y-3">
           {atasFiltradas.map((ata) => (
-            <div key={ata.id} className="section-card flex items-start sm:items-center justify-between gap-4 flex-col sm:flex-row">
+            <div key={ata.id} className="section-card flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="min-w-0 flex-1">
                 <h3 className="font-semibold text-foreground truncate">{ata.titulo}</h3>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
@@ -206,12 +190,65 @@ export function HistoricoPage() {
                   </span>
                 </div>
               </div>
-              <div className="flex gap-2 shrink-0">
-                <Button size="sm" onClick={() => navigate(`/nova-ata?ata=${ata.id}`)}>
+              
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <Button size="sm" onClick={() => navigate(`/nova-ata?ata=${ata.id}`)} variant="secondary">
                   <Eye className="w-3.5 h-3.5 mr-1" /> Abrir
                 </Button>
+                
+                {(ata.foto_assinatura_url || ata.dados_json?.fotoAssinaturaUrl) && (
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button size="sm" variant="outline" className="gap-1 border-cyan-500/20 text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-950/30">
+                        <ImageIcon className="w-3.5 h-3.5" /> Foto
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-3xl">
+                      <DialogHeader>
+                        <DialogTitle>Folha de Assinaturas - {ata.titulo}</DialogTitle>
+                      </DialogHeader>
+                      <div className="mt-2 rounded-lg overflow-hidden border bg-muted flex items-center justify-center">
+                        <img 
+                          src={ata.foto_assinatura_url || ata.dados_json?.fotoAssinaturaUrl} 
+                          className="max-w-full max-h-[70vh] object-contain" 
+                          alt="Assinaturas"
+                        />
+                      </div>
+                      <div className="flex justify-end gap-2 mt-4">
+                        <Button asChild size="sm" variant="outline">
+                          <a href={ata.foto_assinatura_url || ata.dados_json?.fotoAssinaturaUrl} target="_blank" rel="noreferrer">
+                            <ExternalLink className="w-4 h-4 mr-1" /> Abrir Original
+                          </a>
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
+
+                {ata.dados_json?.membrosPresentes && (
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button size="sm" variant="outline" className="gap-1">
+                        <Users className="w-3.5 h-3.5" /> Presentes
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Membros Presentes ({ata.dados_json.membrosPresentes.length})</DialogTitle>
+                      </DialogHeader>
+                      <div className="mt-2 max-h-[60vh] overflow-y-auto space-y-1">
+                        {(ata.dados_json.membrosPresentes as string[]).sort().map((m, i) => (
+                          <div key={i} className="text-sm p-2 rounded border bg-muted/20">
+                            {m}
+                          </div>
+                        ))}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
+
                 {isAdmin && (
-                  <Button size="sm" variant="destructive" onClick={() => handleExcluir(ata)}>
+                  <Button size="sm" variant="ghost" onClick={() => handleExcluir(ata)} className="text-destructive hover:text-destructive">
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 )}

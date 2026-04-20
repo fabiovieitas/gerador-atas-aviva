@@ -140,6 +140,32 @@ function UsersTab() {
     loadData();
   };
 
+  const deleteUser = async (u: UserProfile) => {
+    if (!confirm(`Tem certeza que deseja remover o acesso de ${u.nome}? Isso removerá o perfil e os papéis, mas a conta de autenticação precisará ser removida manualmente no painel do Supabase por segurança.`)) return;
+    
+    setEditingId('loading'); // Bloqueia UI
+    
+    try {
+      // 1. Remover papéis
+      await supabase.from('user_roles').delete().eq('user_id', u.user_id);
+      
+      // 2. Remover perfil
+      await supabase.from('profiles').delete().eq('user_id', u.user_id);
+      
+      // 3. Remover convite vinculado (se existir) para invalidar o token
+      if (u.email) {
+        await supabase.from('invites').delete().eq('email', u.email);
+      }
+      
+      toast.success('Usuário removido do sistema!');
+      loadData();
+    } catch (err) {
+      toast.error('Erro ao remover usuário.');
+    } finally {
+      setEditingId(null);
+    }
+  };
+
   const getChurchName = (churchId: string | null) => {
     if (!churchId) return '—';
     const c = churches.find(ch => ch.id === churchId);
@@ -219,11 +245,18 @@ function UsersTab() {
                       </p>
                     )}
                   </div>
-                  {!isEditing && (
-                    <Button size="sm" variant="outline" onClick={() => startEdit(u)} className="gap-1">
-                      <Edit2 className="w-3 h-3" /> Editar
-                    </Button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {!isEditing && (
+                      <>
+                        <Button size="sm" variant="outline" onClick={() => startEdit(u)} className="gap-1">
+                          <Edit2 className="w-3 h-3" /> Editar
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => deleteUser(u)} className="text-destructive hover:text-destructive">
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 {isEditing && (
@@ -281,6 +314,7 @@ function InvitesTab() {
   const [nome, setNome] = useState('');
   const [role, setRole] = useState('user');
   const [churchId, setChurchId] = useState('');
+  const [expiresInDays, setExpiresInDays] = useState('7');
   const [churches, setChurches] = useState<ChurchRow[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [loading, setLoading] = useState(false);
@@ -305,20 +339,44 @@ function InvitesTab() {
       return;
     }
     setLoading(true);
-    const { data, error } = await supabase.functions.invoke('invite-user', {
-      body: { email, nome, church_id: churchId || null, role },
-    });
-    if (error || data?.error) {
-      toast.error(data?.error || 'Erro ao criar convite.');
+    
+    // Calcula data de expiração baseada nos dias escolhidos
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + parseInt(expiresInDays));
+
+    const { data, error } = await supabase.from('invites').insert({
+      email,
+      nome,
+      church_id: churchId || null,
+      role: role as any,
+      expires_at: expiresAt.toISOString(),
+      invited_by: (await supabase.auth.getUser()).data.user?.id,
+      token: Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15),
+    }).select().single();
+
+    if (error) {
+      toast.error(error.message || 'Erro ao criar convite.');
     } else {
       toast.success('Convite criado com sucesso!');
       setEmail('');
       setNome('');
       setRole('user');
       setChurchId('');
+      setExpiresInDays('7');
       loadData();
     }
     setLoading(false);
+  };
+
+  const deleteInvite = async (id: string) => {
+    if (!confirm('Tem certeza que deseja excluir este convite?')) return;
+    const { error } = await supabase.from('invites').delete().eq('id', id);
+    if (error) {
+      toast.error('Erro ao excluir convite.');
+    } else {
+      toast.success('Convite excluído.');
+      loadData();
+    }
   };
 
   const copyLink = (token: string) => {
@@ -357,7 +415,7 @@ function InvitesTab() {
         <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
           <UserPlus className="w-5 h-5" /> Novo Convite
         </h2>
-        <form onSubmit={handleInvite} className="grid gap-4 sm:grid-cols-2">
+        <form onSubmit={handleInvite} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div>
             <Label className="form-label">Nome completo</Label>
             <Input value={nome} onChange={e => setNome(e.target.value)} placeholder="Nome do convidado" required />
@@ -390,8 +448,21 @@ function InvitesTab() {
               </SelectContent>
             </Select>
           </div>
-          <div className="sm:col-span-2">
-            <Button type="submit" disabled={loading} className="gap-2">
+          <div>
+            <Label className="form-label">Expiração (dias)</Label>
+            <Select value={expiresInDays} onValueChange={setExpiresInDays}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">1 dia</SelectItem>
+                <SelectItem value="3">3 dias</SelectItem>
+                <SelectItem value="7">7 dias</SelectItem>
+                <SelectItem value="15">15 dias</SelectItem>
+                <SelectItem value="30">30 dias</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="sm:col-span-2 lg:col-span-1 flex items-end">
+            <Button type="submit" disabled={loading} className="gap-2 w-full">
               <UserPlus className="w-4 h-4" />
               {loading ? 'Criando...' : 'Criar Convite'}
             </Button>
@@ -424,14 +495,21 @@ function InvitesTab() {
                       <Badge variant="outline" className="gap-1 text-green-600">
                         <CheckCircle className="w-3 h-3" /> Utilizado
                       </Badge>
-                    ) : expired ? (
-                      <Badge variant="outline" className="gap-1 text-destructive">
-                        <XCircle className="w-3 h-3" /> Expirado
-                      </Badge>
                     ) : (
-                      <Button size="sm" variant="outline" onClick={() => copyLink(inv.token)} className="gap-1">
-                        <Copy className="w-3 h-3" /> Copiar Link
-                      </Button>
+                      <>
+                        {expired ? (
+                          <Badge variant="outline" className="gap-1 text-destructive">
+                            <XCircle className="w-3 h-3" /> Expirado
+                          </Badge>
+                        ) : (
+                          <Button size="sm" variant="outline" onClick={() => copyLink(inv.token)} className="gap-1">
+                            <Copy className="w-3 h-3" /> Copiar Link
+                          </Button>
+                        )}
+                        <Button size="sm" variant="ghost" onClick={() => deleteInvite(inv.id)} className="text-destructive hover:text-destructive">
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>

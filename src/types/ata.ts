@@ -2,6 +2,7 @@ export interface Membro {
   nome: string;
   cargo: string;
   genero: 'masculino' | 'feminino';
+  created_at?: string;
 }
 
 export interface DadosFinanceiros {
@@ -45,6 +46,7 @@ export interface AtaFormData {
   aprovacaoFinanceira: boolean;
   deliberacoes: Deliberacao[];
   nomeSecretario: string;
+  fotoAssinaturaUrl?: string;
 }
 
 export interface AtaHistorico {
@@ -56,4 +58,5 @@ export interface AtaHistorico {
   membrosPresentes: string[];
   ataTexto: string;
   geradoEm: string;
+  fotoAssinaturaUrl?: string;
 }

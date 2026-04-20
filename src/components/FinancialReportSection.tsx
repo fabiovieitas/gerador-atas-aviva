@@ -4,6 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Save } from "lucide-react";
 import { MemberMentionInput } from "@/components/MemberMentionInput";
+import { CurrencyInput } from "@/components/CurrencyInput";
 import type { AtaFormData, DadosFinanceiros, Membro } from "@/types/ata";
 
 interface Props {
@@ -36,17 +37,17 @@ function MesFields({ mes, onChange, label }: { mes: DadosFinanceiros; onChange: 
       <div className="grid md:grid-cols-2 gap-3">
         <div>
           <Label className="form-label">Caixa Inicial</Label>
-          <Input value={mes.caixaInicial} onChange={e => onChange('caixaInicial', e.target.value)} placeholder="R$0,00" />
+          <CurrencyInput value={mes.caixaInicial} onChange={val => onChange('caixaInicial', val)} />
         </div>
         <div>
           <Label className="form-label">Entradas</Label>
-          <Input value={mes.entradas} onChange={e => onChange('entradas', e.target.value)} placeholder="R$0,00" />
+          <CurrencyInput value={mes.entradas} onChange={val => onChange('entradas', val)} />
         </div>
       </div>
       <div className="grid md:grid-cols-2 gap-3">
         <div>
           <Label className="form-label">Saídas</Label>
-          <Input value={mes.saidas} onChange={e => onChange('saidas', e.target.value)} placeholder="R$0,00" />
+          <CurrencyInput value={mes.saidas} onChange={val => onChange('saidas', val)} />
         </div>
         <div>
           <Label className="form-label">Caixa Final</Label>
