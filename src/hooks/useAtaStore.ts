@@ -28,14 +28,29 @@ const initialFormData: AtaFormData = {
 };
 
 export function useAtaStore() {
-  const { profile, user } = useAuth();
-  const [membros, setMembros] = useLocalStorage<Membro[]>('membrosAvivaAta', []);
-  const [historico, setHistorico] = useLocalStorage<AtaHistorico[]>('atasAvivaHistorico2025', []);
+  const [membros, setMembros] = useState<Membro[]>([]);
+  const [historico, setHistorico] = useState<AtaHistorico[]>([]);
   const [formData, setFormData] = useState<AtaFormData>(initialFormData);
   const [membrosPresentes, setMembrosPresentes] = useState<string[]>([]);
+  const [churchConfig, setChurchConfig] = useState<any>(null);
+  const { profile, user } = useAuth();
   const [ataGerada, setAtaGerada] = useState('');
   const [defaults, setDefaults] = useLocalStorage<Record<string, string>>('ataDefaults', {});
   const [selectedChurchId, setSelectedChurchId] = useState<string | null>(null);
+
+  // Carregar configurações da igreja
+  useEffect(() => {
+    if (profile?.church_id) {
+      supabase
+        .from("churches")
+        .select("*")
+        .eq("id", profile.church_id)
+        .single()
+        .then(({ data }) => {
+          if (data) setChurchConfig(data.settings);
+        });
+    }
+  }, [profile?.church_id]);
 
   // Define a igreja inicial baseada no perfil
   useEffect(() => {
@@ -156,138 +171,89 @@ export function useAtaStore() {
 
   const gerarAta = useCallback(() => {
     const d = formData;
-    const formatDate = (dateStr: string) => {
-      if (!dateStr) return '___';
-      const date = new Date(dateStr + 'T12:00:00');
-      return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
-    };
-
+    
     const getMembro = (nome: string) => membros.find(mb => mb.nome === nome);
-
-    const artigo = (nome: string) => {
-      const m = getMembro(nome);
-      return m?.genero === 'feminino' ? 'a' : 'o';
-    };
-
-    const artigoMaiusc = (nome: string) => {
-      const m = getMembro(nome);
-      return m?.genero === 'feminino' ? 'A' : 'O';
-    };
-
-    // Returns the title/cargo with proper gender inflection
-    const cargoGenero = (nome: string) => {
-      const m = getMembro(nome);
-      if (!m?.cargo) return '';
-      return m.cargo;
-    };
-
-    // Builds the reference to a member: uses cargo if present, otherwise "irmão/irmã"
+    const artigo = (nome: string) => getMembro(nome)?.genero === 'feminino' ? 'a' : 'o';
+    const artigoMaiusc = (nome: string) => getMembro(nome)?.genero === 'feminino' ? 'A' : 'O';
     const refMembro = (nome: string) => {
       const m = getMembro(nome);
-      const c = m?.cargo;
-      if (c) {
-        return `${artigo(nome)} ${c} ${nome}`;
-      }
-      const titulo = m?.genero === 'feminino' ? 'a irmã' : 'o irmão';
-      return `${titulo} ${nome}`;
+      if (m?.cargo) return `${artigo(nome)} ${m.cargo} ${nome}`;
+      return `${m?.genero === 'feminino' ? 'a irmã' : 'o irmão'} ${nome}`;
     };
-
-    // Same but starting a sentence (capitalized article)
     const refMembroMaiusc = (nome: string) => {
       const m = getMembro(nome);
-      const c = m?.cargo;
-      if (c) {
-        return `${artigoMaiusc(nome)} ${c} ${nome}`;
-      }
-      const titulo = m?.genero === 'feminino' ? 'A irmã' : 'O irmão';
-      return `${titulo} ${nome}`;
+      if (m?.cargo) return `${artigoMaiusc(nome)} ${m.cargo} ${nome}`;
+      return `${m?.genero === 'feminino' ? 'A irmã' : 'O irmão'} ${nome}`;
     };
-
-    // Qualidade for encerramento — uses registered cargo if available
     const qualidadeSecretario = (nome: string) => {
       const m = getMembro(nome);
       if (m?.cargo) return m.cargo;
       return m?.genero === 'feminino' ? 'Secretária' : 'Secretário';
     };
 
-    let texto = '';
-    texto += `ATA DE ASSEMBLEIA ${d.tipoAssembleia.toUpperCase()} DA IGREJA EVANGÉLICA AVIVA, EM FLORESTA, SÃO FRANCISCO DE ITABAPOANA (RJ), NA FORMA ABAIXO:\n\n`;
-    texto += `Aos ${formatDate(d.dataReuniao)}, às ${d.horaInicio || '___'}h, `;
-    texto += `no templo da IGREJA EVANGÉLICA AVIVA, situada na ${d.localReuniao || '___'}, `;
-    texto += `reuniram-se, em Assembleia ${d.tipoAssembleia}, os membros ativos desta igreja`;
+    let aberturaTemplate = churchConfig?.aberturaTemplate || "ATA DE ASSEMBLEIA [TIPO] DA IGREJA EVANGÉLICA AVIVA. Aos [DIA] dias do mês de [MÊS] de [ANO], às [HORA], no templo da IGREJA EVANGÉLICA AVIVA, situada na [LOCAL], reuniram-se os membros ativos desta igreja, sob a direção d[PASTOR], para deliberar sobre [ASSUNTO]. Após ter feito a chamada dos membros presentes, e havendo quórum suficiente, [PASTOR] declara instalada a assembleia e abertos os trabalhos.";
+    let fechamentoTemplate = churchConfig?.fechamentoTemplate || "Feito isso, [PASTOR] encerrou esta assembleia [TIPO], às [HORA_FIM], orando e impetrando a bênção apostólica. E, por não haver mais nada a ser tratado, eu, [SECRETARIO], na qualidade de [CARGO_SEC], lavrei a presente Ata, que após lida e aprovada pela Assembleia, vai assinada, por mim e pelo pastor.";
 
-    if (d.semQuorum) {
-      texto += `. Não havendo quórum na primeira chamada, foi realizada segunda chamada às ${d.horaSegundaChamada || '___'}h`;
-    }
-
-    texto += `, sob a direção d${refMembro(d.pastorDirigente)}`;
-    texto += `, para deliberar sobre ${d.assuntosPrincipais || '___'}. `;
-
-    // Chamada e abertura — mesmo parágrafo
-    texto += `Após ter feito a chamada dos membros presentes, e havendo quórum suficiente, ${refMembro(d.pastorDirigente)} declara instalada a assembleia e abertos os trabalhos.`;
-
-    if (d.hinoHarpa && d.palavraInicial) {
-      texto += ` Seguindo com o canto do hino ${d.hinoHarpa} e a leitura de ${d.palavraInicial}, apresentando uma breve palavra sobre esta porção bíblica.`;
-    } else if (d.hinoHarpa) {
-      texto += ` Seguindo com o canto do hino ${d.hinoHarpa}.`;
-    } else if (d.palavraInicial) {
-      texto += ` Seguindo com a leitura de ${d.palavraInicial}, apresentando uma breve palavra sobre esta porção bíblica.`;
-    }
-
-    texto += ` Em seguida, convida ${refMembro(d.nomeSecretario)} para ler a ata do mês anterior`;
-
-    // Ata anterior
-    if (d.aprovacaoAtaAnterior === 'unanimidade') {
-      texto += `, sendo a mesma aprovada por todos os presentes. `;
-    } else {
-      texto += `. ${refMembroMaiusc(d.ressalvaMembro)} apresentou ressalvas: "${d.ressalvaMotivos || '___'}". `;
-      texto += `Foram prestados os seguintes esclarecimentos: "${d.ressalvaEsclarecimentos || '___'}". `;
-      if (d.ressalvaPosicaoFinal === 'retirou') {
-        texto += `Após os esclarecimentos, ${refMembro(d.ressalvaMembro)} retirou a ressalva e a ata foi aprovada. `;
-      } else {
-        texto += `${refMembroMaiusc(d.ressalvaMembro)} manteve sua posição. `;
-      }
-    }
-
-    // Relatório financeiro — mesmo parágrafo (continuidade)
-    const renderMes = (mes: DadosFinanceiros) => {
-      return `do mês de ${mes.nome || '___'} de ${mes.ano || '___'}, foi de ${valorPorExtenso(mes.caixaInicial || 'R$0,00')}, ` +
-        `a entrada de ${valorPorExtenso(mes.entradas || 'R$0,00')}, ` +
-        `saída de ${valorPorExtenso(mes.saidas || 'R$0,00')} ` +
-        `e tendo, como caixa final, a quantia de ${valorPorExtenso(mes.caixaFinal || 'R$0,00')}`;
+    const substituirVariaveis = (texto: string) => {
+      const data = new Date(d.dataReuniao + 'T12:00:00');
+      const meses = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+      
+      return texto
+        .replace(/\[DIA\]/g, isNaN(data.getDate()) ? "___" : data.getDate().toString())
+        .replace(/\[MÊS\]/g, isNaN(data.getMonth()) ? "___" : meses[data.getMonth()])
+        .replace(/\[ANO\]/g, isNaN(data.getFullYear()) ? "___" : data.getFullYear().toString())
+        .replace(/\[HORA\]/g, d.horaInicio || "___")
+        .replace(/\[HORA_FIM\]/g, d.horaTermino || "___")
+        .replace(/\[LOCAL\]/g, d.localReuniao || "___")
+        .replace(/\[PASTOR\]/g, d.pastorDirigente ? refMembro(d.pastorDirigente) : "___")
+        .replace(/\[SECRETARIO\]/g, d.nomeSecretario || "___")
+        .replace(/\[CARGO_SEC\]/g, qualidadeSecretario(d.nomeSecretario))
+        .replace(/\[TIPO\]/g, d.tipoAssembleia || "___")
+        .replace(/\[ASSUNTO\]/g, d.assuntosPrincipais || "___");
     };
 
-    texto += `Com a palavra, ${refMembro(d.tesoureira)} informou que o caixa inicial da igreja, ${renderMes(d.mes1)}.`;
-
-    if (d.incluirMes2 && d.relatorioMultiplosMeses) {
-      texto += ` Ainda, ${artigo(d.tesoureira) === 'a' ? 'a mesma' : 'o mesmo'} apresentou o relatório financeiro ${renderMes(d.mes2)}.`;
+    let texto = `${substituirVariaveis(aberturaTemplate)}\n\n`;
+    
+    if (d.hinoHarpa || d.palavraInicial) {
+      texto += `Seguiu-se com o canto do hino ${d.hinoHarpa || ""} e a leitura de ${d.palavraInicial || ""}, com uma breve palavra sobre esta porção bíblica. `;
     }
 
-    if (d.aprovadorConselhoFiscal) {
-      texto += ` Após a apresentação, houve total apoio do conselho fiscal, com a aprovação d${refMembro(d.aprovadorConselhoFiscal)}`;
+    texto += `Em seguida, convidou-se ${refMembro(d.nomeSecretario)} para ler a ata do mês anterior. `;
+    if (d.aprovacaoAtaAnterior === 'unanimidade') {
+      texto += `A mesma foi aprovada por todos os presentes por unanimidade. `;
+    } else {
+      texto += `Houve ressalvas por parte de ${refMembro(d.ressalvaMembro)}: "${d.ressalvaMotivos}". `;
     }
+    texto += `\n\n`;
 
     if (d.aprovacaoFinanceira) {
-      texto += `, e passou para a igreja a aprovação do relatório e seu conteúdo, sendo o mesmo aprovado de forma unânime.`;
+      texto += `RELATÓRIO FINANCEIRO:\n`;
+      texto += `Com a palavra, ${refMembro(d.tesoureira)} informou o movimento financeiro do mês de ${d.mes1.nome}: Caixa Inicial de ${d.mes1.caixaInicial}, Entradas de ${d.mes1.entradas}, Saídas de ${d.mes1.saidas} e Caixa Final de ${d.mes1.caixaFinal}. `;
+      
+      if (d.incluirMes2) {
+        texto += `Também apresentou o mês de ${d.mes2.nome}: Caixa Inicial de ${d.mes2.caixaInicial}, Entradas de ${d.mes2.entradas}, Saídas de ${d.mes2.saidas} e Caixa Final de ${d.mes2.caixaFinal}. `;
+      }
+      
+      if (d.aprovadorConselhoFiscal) {
+        texto += `Houve total apoio do conselho fiscal, com aprovação d${refMembro(d.aprovadorConselhoFiscal)}. `;
+      }
+      texto += `A assembleia aprovou o relatório financeiro de forma unânime.\n\n`;
     }
 
-    // Registros — continuação no mesmo parágrafo
-    const oportunidades = d.deliberacoes.map((del) => del.texto.trim()).filter(Boolean);
-    if (oportunidades.length > 0) {
-      texto += ` `;
-      oportunidades.forEach((t) => {
-        texto += `${t} `;
+    if (d.deliberacoes.length > 0) {
+      texto += `REGISTROS E DELIBERAÇÕES:\n`;
+      d.deliberacoes.forEach((item, index) => {
+        texto += `${index + 1}. ${item.texto}\n`;
       });
-      texto = texto.trimEnd();
+      texto += `\n`;
     }
 
-    // Encerramento — novo parágrafo (mudança de assunto)
-    texto += `\n\nFeito isso, ${refMembro(d.pastorDirigente)} encerrou esta assembleia ${d.tipoAssembleia}, às ${d.horaTermino || '___'}h, orando e impetrando a bênção apostólica. E, por não haver mais nada a ser tratado, eu, ${d.nomeSecretario || '___'}, na qualidade de ${qualidadeSecretario(d.nomeSecretario)}, lavrei a presente Ata, que após lida e aprovada pela Assembleia, vai assinada, por mim e pelo pastor.\n\n`;
+    texto += `${substituirVariaveis(fechamentoTemplate)}\n\n`;
     texto += `{{ASSINATURAS}}`;
-
+    
     setAtaGerada(texto);
     return texto;
-  }, [formData, membros, membrosPresentes]);
+  }, [formData, membros, membrosPresentes, churchConfig]);
 
   const salvarNoHistorico = useCallback((texto: string) => {
     const d = formData;
