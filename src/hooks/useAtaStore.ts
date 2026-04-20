@@ -191,11 +191,13 @@ export function useAtaStore() {
       return m?.genero === 'feminino' ? 'Secretária' : 'Secretário';
     };
 
-    let aberturaTemplate = churchConfig?.aberturaTemplate || "ATA DE ASSEMBLEIA [TIPO] DA IGREJA EVANGÉLICA AVIVA. Aos [DIA] dias do mês de [MÊS] de [ANO], às [HORA], no templo da IGREJA EVANGÉLICA AVIVA, situada na [LOCAL], reuniram-se os membros ativos desta igreja, sob a direção d[PASTOR], para deliberar sobre [ASSUNTO]. Após ter feito a chamada dos membros presentes, e havendo quórum suficiente, [PASTOR] declara instalada a assembleia e abertos os trabalhos.";
-    let fechamentoTemplate = churchConfig?.fechamentoTemplate || "Feito isso, [PASTOR] encerrou esta assembleia [TIPO], às [HORA_FIM], orando e impetrando a bênção apostólica. E, por não haver mais nada a ser tratado, eu, [SECRETARIO], na qualidade de [CARGO_SEC], lavrei a presente Ata, que após lida e aprovada pela Assembleia, vai assinada, por mim e pelo pastor.";
+    // Fallback Templates (Os originais)
+    let aberturaTemplate = churchConfig?.texto_abertura || "ATA DE ASSEMBLEIA [TIPO] DA IGREJA EVANGÉLICA AVIVA. Aos [DIA] dias do mês de [MÊS] de [ANO], às [HORA], no templo da IGREJA EVANGÉLICA AVIVA, situada na [LOCAL], reuniram-se os membros ativos desta igreja, sob a direção d[PASTOR], para deliberar sobre [ASSUNTO]. Após ter feito a chamada dos membros presentes, e havendo quórum suficiente, [PASTOR] declara instalada a assembleia e abertos os trabalhos.";
+    let fechamentoTemplate = churchConfig?.texto_fechamento || "Feito isso, [PASTOR] encerrou esta assembleia [TIPO], às [HORA_FIM], orando e impetrando a bênção apostólica. E, por não haver mais nada a ser tratado, eu, [SECRETARIO], na qualidade de [CARGO_SEC], lavrei a presente Ata, que após lida e aprovada pela Assembleia, vai assinada, por mim e pelo pastor.";
 
     const substituirVariaveis = (texto: string) => {
-      const data = new Date(d.dataReuniao + 'T12:00:00');
+      if (!texto) return "";
+      const data = d.dataReuniao ? new Date(d.dataReuniao + 'T12:00:00') : new Date();
       const meses = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
       
       return texto
@@ -207,7 +209,7 @@ export function useAtaStore() {
         .replace(/\[LOCAL\]/g, d.localReuniao || "___")
         .replace(/\[PASTOR\]/g, d.pastorDirigente ? refMembro(d.pastorDirigente) : "___")
         .replace(/\[SECRETARIO\]/g, d.nomeSecretario || "___")
-        .replace(/\[CARGO_SEC\]/g, qualidadeSecretario(d.nomeSecretario))
+        .replace(/\[CARGO_SEC\]/g, d.nomeSecretario ? qualidadeSecretario(d.nomeSecretario) : "___")
         .replace(/\[TIPO\]/g, d.tipoAssembleia || "___")
         .replace(/\[ASSUNTO\]/g, d.assuntosPrincipais || "___");
     };
