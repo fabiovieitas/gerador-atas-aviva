@@ -77,7 +77,7 @@ export function ConfiguracoesPage({ store }: Props) {
           cnpj: church.cnpj,
           endereco: church.endereco,
           logo_url: church.logo_url,
-          settings: church.settings
+          settings: church.settings || {}
         })
         .eq("id", profile.church_id);
 
@@ -86,15 +86,18 @@ export function ConfiguracoesPage({ store }: Props) {
     } catch (err: any) {
       toast.error("Erro ao salvar: " + err.message);
     } finally {
+      setLoading(true);
+      fetchChurchData(); // Recarregar para garantir sincronia
       setLoading(false);
     }
   };
 
   const updateSetting = (key: string, value: any) => {
     if (!church) return;
+    const currentSettings = church.settings || {};
     setChurch({
       ...church,
-      settings: { ...church.settings, [key]: value }
+      settings: { ...currentSettings, [key]: value }
     });
   };
 
