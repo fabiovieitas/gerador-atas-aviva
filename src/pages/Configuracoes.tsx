@@ -197,13 +197,14 @@ export function ConfiguracoesPage({ store }: Props) {
           </Card>
         </TabsContent>
 
+        {/* ABA VISUAL: CORES E TEMA */}
         <TabsContent value="visual" className="space-y-4">
           <Card className="p-6">
             <h3 className="font-bold mb-4">Cor do Sistema</h3>
             <div className="flex items-center gap-6">
               <input 
                 type="color" 
-                value={church.settings.cor_principal} 
+                value={church.settings?.cor_principal || "#0ea5e9"} 
                 onChange={e => updateSetting("cor_principal", e.target.value)}
                 className="w-16 h-16 rounded-lg cursor-pointer border-2"
               />
@@ -215,6 +216,7 @@ export function ConfiguracoesPage({ store }: Props) {
           </Card>
         </TabsContent>
 
+        {/* ABA TEMPLATES: TEXTOS DA ATA */}
         <TabsContent value="templates" className="space-y-4">
           <Card className="p-6">
             <div className="mb-6 p-3 bg-primary/5 rounded border border-primary/10">
@@ -230,7 +232,7 @@ export function ConfiguracoesPage({ store }: Props) {
                 <label className="text-sm font-medium">Texto de Abertura (Padrão)</label>
                 <textarea 
                   className="w-full min-h-[120px] p-4 rounded-lg border bg-background text-sm leading-relaxed focus:ring-2 ring-primary"
-                  value={church.settings.texto_abertura}
+                  value={church.settings?.texto_abertura || ""}
                   onChange={e => updateSetting("texto_abertura", e.target.value)}
                 />
               </div>
@@ -239,7 +241,7 @@ export function ConfiguracoesPage({ store }: Props) {
                 <label className="text-sm font-medium">Texto de Encerramento (Padrão)</label>
                 <textarea 
                   className="w-full min-h-[80px] p-4 rounded-lg border bg-background text-sm leading-relaxed focus:ring-2 ring-primary"
-                  value={church.settings.texto_fechamento}
+                  value={church.settings?.texto_fechamento || ""}
                   onChange={e => updateSetting("texto_fechamento", e.target.value)}
                 />
               </div>

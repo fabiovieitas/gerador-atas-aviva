@@ -47,8 +47,13 @@ export function useAtaStore() {
         .eq("id", profile.church_id)
         .single()
         .then(({ data }) => {
-          if (data) setChurchConfig(data.settings);
-        });
+          if (data && data.settings) {
+            setChurchConfig(data.settings);
+          } else {
+            setChurchConfig({}); // Objeto vazio para evitar erro de 'undefined'
+          }
+        })
+        .catch(() => setChurchConfig({}));
     }
   }, [profile?.church_id]);
 
