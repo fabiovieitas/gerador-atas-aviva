@@ -107,7 +107,7 @@ export function MeetingInfoSection({ data, onUpdate, onSaveDefault, membros }: P
             </div>
             <div>
               <p className="text-sm font-bold text-foreground">
-                {uploading ? 'Enviando...' : 'Adicionar Fotos'}
+                {uploading ? 'Enviando...' : 'Adicionar Assinaturas'}
               </p>
               <p className="text-[10px] text-muted-foreground">Clique para selecionar uma ou mais fotos</p>
             </div>

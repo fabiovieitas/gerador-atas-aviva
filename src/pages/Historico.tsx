@@ -195,15 +195,43 @@ export function HistoricoPage() {
               </div>
               
               <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button size="sm" variant="outline" className="gap-1.5 border-primary/20 text-primary hover:bg-primary/5">
+                      <FileText className="w-3.5 h-3.5" /> Ver Ata
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+                    <DialogHeader>
+                      <DialogTitle>Visualizar Ata: {ata.titulo}</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex-1 overflow-y-auto mt-4 p-6 bg-muted/30 rounded-lg border font-serif leading-relaxed whitespace-pre-wrap text-sm md:text-base">
+                      {ata.conteudo || "O texto desta ata não foi encontrado."}
+                    </div>
+                    <div className="flex justify-end gap-2 mt-4">
+                      <Button variant="secondary" size="sm" onClick={() => {
+                        const win = window.open('', '_blank');
+                        if (win) {
+                          win.document.write(`<html><head><title>${ata.titulo}</title><style>body{font-family:serif;padding:40px;line-height:1.6;}</style></head><body><pre style="white-space:pre-wrap;">${ata.conteudo}</pre></body></html>`);
+                          win.document.close();
+                          win.print();
+                        }
+                      }}>
+                        Imprimir
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+
                 <Button size="sm" onClick={() => navigate(`/nova-ata?ata=${ata.id}`)} variant="secondary">
-                  <Eye className="w-3.5 h-3.5 mr-1" /> Abrir
+                  <Eye className="w-3.5 h-3.5 mr-1" /> Editar
                 </Button>
                 
                 {(ata.fotosAssinaturaUrls && ata.fotosAssinaturaUrls.length > 0) && (
                   <Dialog>
                     <DialogTrigger asChild>
                       <Button size="sm" variant="outline" className="gap-1 border-cyan-500/20 text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-950/30">
-                        <ImageIcon className="w-3.5 h-3.5" /> Fotos ({ata.fotosAssinaturaUrls.length})
+                        <ImageIcon className="w-3.5 h-3.5" /> Assinaturas ({ata.fotosAssinaturaUrls.length})
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
