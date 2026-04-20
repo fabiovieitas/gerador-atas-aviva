@@ -15,14 +15,22 @@ interface SignatureData {
   presidenteCargo: string;
 }
 
+interface ChurchInfo {
+  nome: string;
+  cnpj: string;
+  endereco: string;
+  logo_url: string;
+}
+
 interface Props {
   ataTexto: string;
   onUpdate: (texto: string) => void;
   originalTexto?: string;
   signatureData?: SignatureData;
+  churchInfo?: ChurchInfo | null;
 }
 
-export function AtaEditor({ ataTexto, onUpdate, originalTexto, signatureData }: Props) {
+export function AtaEditor({ ataTexto, onUpdate, originalTexto, signatureData, churchInfo }: Props) {
   const [editing, setEditing] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
   const [fontSize, setFontSize] = useState(12);
@@ -101,6 +109,19 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto, signatureData }: 
     // Add signature block
     if (raw.includes('{{ASSINATURAS}}')) {
       htmlParts.push(`<div class="assinaturas">` + getSignatureHtml() + `</div>`);
+    }
+
+    if (churchInfo) {
+      const header = `
+        <div style="text-align: center; margin-bottom: 30px; font-family: 'Times New Roman', Times, serif;">
+          ${churchInfo.logo_url ? `<img src="${churchInfo.logo_url}" style="max-width: 100px; max-height: 100px; margin-bottom: 10px; display: block; margin-left: auto; margin-right: auto;" />` : ''}
+          <div style="font-size: 14pt; font-weight: bold; text-transform: uppercase;">${churchInfo.nome}</div>
+          <div style="font-size: 10pt; margin-top: 4px;">CNPJ: ${churchInfo.cnpj || '___'}</div>
+          <div style="font-size: 10pt; margin-top: 2px;">${churchInfo.endereco || '___'}</div>
+          <hr style="margin-top: 15px; border: 0; border-top: 1px solid #000;" />
+        </div>
+      `;
+      htmlParts.unshift(header);
     }
     
     return htmlParts.join('\n');

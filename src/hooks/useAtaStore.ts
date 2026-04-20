@@ -36,6 +36,7 @@ export function useAtaStore() {
   const [ataGerada, setAtaGerada] = useState('');
   const [defaults, setDefaults] = useLocalStorage<Record<string, string>>('ataDefaults', {});
   const [selectedChurchId, setSelectedChurchId] = useState<string | null>(null);
+  const [churchInfo, setChurchInfo] = useState<{nome: string, cnpj: string, endereco: string, logo_url: string} | null>(null);
 
   useEffect(() => {
     if (profile?.church_id && !selectedChurchId) {
@@ -47,6 +48,11 @@ export function useAtaStore() {
     if (!selectedChurchId) return;
     const fetchNuvem = async () => {
       try {
+        const { data: churchData } = await supabase.from('churches').select('nome, cnpj, endereco, logo_url').eq('id', selectedChurchId).single();
+        if (churchData) {
+          setChurchInfo(churchData as any);
+        }
+
         const { data: mData } = await supabase.from('membros').select('*').eq('church_id', selectedChurchId).order('nome');
         if (mData) {
           setMembros(mData.map(m => ({ 
@@ -266,6 +272,7 @@ export function useAtaStore() {
     historico, salvarNoHistorico, carregarDoHistorico, excluirDoHistorico,
     limparFormulario, preencherTeste,
     defaults, saveDefault, loadDefaults,
-    selectedChurchId, setSelectedChurchId
+    selectedChurchId, setSelectedChurchId,
+    churchInfo
   };
 }

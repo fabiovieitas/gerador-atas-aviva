@@ -3,11 +3,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Trash2, Eye, Clock, User, Church, Filter, Image as ImageIcon, Users, ExternalLink } from "lucide-react";
+import { FileText, Trash2, Eye, Clock, User, Church, Filter, Image as ImageIcon, Users, ExternalLink, Book, CheckSquare, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import html2pdf from 'html2pdf.js';
+import { useAtaStore } from "@/hooks/useAtaStore";
 
 interface AtaRow {
   id: string;
@@ -31,12 +34,15 @@ interface ChurchOption {
 
 export function HistoricoPage() {
   const { profile, isAdmin } = useAuth();
+  const store = useAtaStore();
   const navigate = useNavigate();
   const [atas, setAtas] = useState<AtaRow[]>([]);
   const [churches, setChurches] = useState<ChurchOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
   const [churchFilter, setChurchFilter] = useState<string>("all");
+  const [selecaoModo, setSelecaoModo] = useState(false);
+  const [atasSelecionadas, setAtasSelecionadas] = useState<string[]>([]);
 
   const fetchAtas = async () => {
     setLoading(true);
@@ -106,6 +112,95 @@ export function HistoricoPage() {
     }
     toast.success("Ata apagada com sucesso.");
     setAtas((prev) => prev.filter((a) => a.id !== ata.id));
+    setAtasSelecionadas((prev) => prev.filter((id) => id !== ata.id));
+  };
+
+  const handleToggleSelecao = (id: string) => {
+    setAtasSelecionadas((prev) => 
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const gerarLivroAtas = () => {
+    if (atasSelecionadas.length === 0) return;
+    
+    // Pegar as atas selecionadas, com seus textos
+    const selecionadas = atas.filter(a => atasSelecionadas.includes(a.id));
+    
+    // Ordenar cronologicamente (da mais antiga para a mais nova)
+    selecionadas.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+    let htmlParts = [];
+    
+    // Capa
+    const anoAtual = new Date().getFullYear();
+    const churchNome = store.churchInfo?.nome || "Igreja Evangélica AVIVA";
+    const churchLogo = store.churchInfo?.logo_url ? `<img src="${store.churchInfo.logo_url}" style="max-width: 150px; max-height: 150px; margin-bottom: 20px;" />` : '';
+
+    htmlParts.push(`
+      <div style="page-break-after: always; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; text-align: center; font-family: 'Times New Roman', Times, serif;">
+        ${churchLogo}
+        <h1 style="font-size: 36pt; margin-bottom: 20px;">LIVRO DE ATAS</h1>
+        <h2 style="font-size: 24pt; font-weight: normal; text-transform: uppercase;">${churchNome}</h2>
+        <p style="font-size: 14pt; margin-top: 50px;">Registro Oficial de Assembleias</p>
+        <p style="font-size: 14pt; margin-top: 20px;">Volume - ${anoAtual}</p>
+      </div>
+    `);
+
+    // Cabeçalho Oficial
+    const headerHtml = store.churchInfo ? `
+      <div style="text-align: center; margin-bottom: 30px; font-family: 'Times New Roman', Times, serif;">
+        ${store.churchInfo.logo_url ? `<img src="${store.churchInfo.logo_url}" style="max-width: 100px; max-height: 100px; margin-bottom: 10px; display: block; margin-left: auto; margin-right: auto;" />` : ''}
+        <div style="font-size: 14pt; font-weight: bold; text-transform: uppercase;">${store.churchInfo.nome}</div>
+        <div style="font-size: 10pt; margin-top: 4px;">CNPJ: ${store.churchInfo.cnpj || '___'}</div>
+        <div style="font-size: 10pt; margin-top: 2px;">${store.churchInfo.endereco || '___'}</div>
+        <hr style="margin-top: 15px; border: 0; border-top: 1px solid #000;" />
+      </div>
+    ` : '';
+
+    // Concatenar atas
+    selecionadas.forEach((ata, index) => {
+      const conteudoHtml = (ata.conteudo || "Conteúdo não encontrado.")
+        .split('\\n')
+        .map(line => line.trim())
+        .filter(line => line !== '{{ASSINATURAS}}' && line !== '')
+        .map(line => {
+          if (line.startsWith('ATA DE ASSEMBLEIA')) {
+            return `<p style="font-weight: bold; text-align: center; margin-bottom: 20pt; font-size: 14pt;">${line}</p>`;
+          }
+          return `<p style="text-align: justify; margin-bottom: 10pt; line-height: 1.5;">${line}</p>`;
+        })
+        .join('\\n');
+
+      htmlParts.push(`<div ${index < selecionadas.length - 1 ? 'style="page-break-after: always;"' : ''}>`);
+      htmlParts.push(headerHtml);
+      htmlParts.push(conteudoHtml);
+      htmlParts.push(`</div>`);
+    });
+
+    const finalHtml = `
+      <div style="font-family: 'Times New Roman', Times, serif; font-size: 12pt; padding: 20px;">
+        ${htmlParts.join('\n')}
+      </div>
+    `;
+
+    const div = document.createElement('div');
+    div.innerHTML = finalHtml;
+
+    const opt = {
+      margin:       [20, 15, 20, 15],
+      filename:     `Livro_de_Atas_${anoAtual}.pdf`,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2 },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    toast.info("Gerando Livro de Atas, isso pode levar alguns segundos...");
+    html2pdf().from(div).set(opt).save().then(() => {
+      toast.success("Livro de Atas gerado com sucesso!");
+      setSelecaoModo(false);
+      setAtasSelecionadas([]);
+    });
   };
 
   const atasFiltradas = useMemo(() => {
@@ -117,11 +212,14 @@ export function HistoricoPage() {
     if (termo) {
       result = result.filter((a) => {
         const dataFormatada = new Date(a.created_at).toLocaleDateString("pt-BR");
+        const conteudoDaAta = (a.conteudo || "").toLowerCase();
+        
         return (
           a.titulo.toLowerCase().includes(termo) ||
           (a.church_nome || "").toLowerCase().includes(termo) ||
           (a.autor_nome || "").toLowerCase().includes(termo) ||
-          dataFormatada.includes(termo)
+          dataFormatada.includes(termo) ||
+          conteudoDaAta.includes(termo)
         );
       });
     }
@@ -135,13 +233,29 @@ export function HistoricoPage() {
           <h1 className="text-2xl font-display font-bold text-foreground">Histórico de Atas</h1>
           <p className="text-sm text-muted-foreground mt-1">{atas.length} ata(s) no sistema</p>
         </div>
+        <div className="flex gap-2">
+          {selecaoModo ? (
+            <>
+              <Button onClick={() => { setSelecaoModo(false); setAtasSelecionadas([]); }} variant="ghost" size="sm" className="gap-2 text-muted-foreground">
+                <X className="w-4 h-4" /> Cancelar
+              </Button>
+              <Button onClick={gerarLivroAtas} disabled={atasSelecionadas.length === 0} size="sm" className="gap-2 bg-primary">
+                <Book className="w-4 h-4" /> Gerar Livro ({atasSelecionadas.length})
+              </Button>
+            </>
+          ) : (
+            <Button onClick={() => setSelecaoModo(true)} variant="outline" size="sm" className="gap-2">
+              <CheckSquare className="w-4 h-4" /> Criar Livro de Atas
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">
         <Input
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
-          placeholder="Buscar por título, igreja ou data..."
+          placeholder="Buscar por título, conteúdo, igreja ou data..."
           className="flex-1"
         />
         {isAdmin && churches.length > 1 && (
@@ -173,9 +287,17 @@ export function HistoricoPage() {
       ) : (
         <div className="space-y-3">
           {atasFiltradas.map((ata) => (
-            <div key={ata.id} className="section-card flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="min-w-0 flex-1">
-                <h3 className="font-semibold text-foreground truncate">{ata.titulo}</h3>
+            <div key={ata.id} className={`section-card flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors ${atasSelecionadas.includes(ata.id) ? 'border-primary ring-1 ring-primary/20 bg-primary/5' : ''}`}>
+              <div className="min-w-0 flex-1 flex items-start gap-4">
+                {selecaoModo && (
+                  <Checkbox 
+                    checked={atasSelecionadas.includes(ata.id)}
+                    onCheckedChange={() => handleToggleSelecao(ata.id)}
+                    className="mt-1"
+                  />
+                )}
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold text-foreground truncate">{ata.titulo}</h3>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <Clock className="w-3 h-3" />
