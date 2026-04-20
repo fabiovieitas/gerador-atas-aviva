@@ -23,27 +23,33 @@ export function MeetingInfoSection({ data, onUpdate, onSaveDefault, membros }: P
   const now = () => new Date().toTimeString().slice(0, 5);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     setUploading(true);
+    const newUrls: string[] = [...(data.fotosAssinaturaUrls || [])];
+
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}.${fileExt}`;
-      const filePath = `assinaturas/${fileName}`;
+      for (const file of Array.from(files)) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
+        const filePath = `assinaturas/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('assinaturas_atas')
-        .upload(filePath, file);
+        const { error: uploadError } = await supabase.storage
+          .from('assinaturas_atas')
+          .upload(filePath, file);
 
-      if (uploadError) throw uploadError;
+        if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('assinaturas_atas')
-        .getPublicUrl(filePath);
+        const { data: { publicUrl } } = supabase.storage
+          .from('assinaturas_atas')
+          .getPublicUrl(filePath);
+        
+        newUrls.push(publicUrl);
+      }
 
-      onUpdate('fotoAssinaturaUrl', publicUrl);
-      toast.success("Foto da folha de assinaturas enviada!");
+      onUpdate('fotosAssinaturaUrls', newUrls);
+      toast.success(`${files.length} foto(s) enviada(s) com sucesso!`);
     } catch (error: any) {
       toast.error("Erro ao enviar foto: " + error.message);
     } finally {
@@ -51,46 +57,61 @@ export function MeetingInfoSection({ data, onUpdate, onSaveDefault, membros }: P
     }
   };
 
-  const removePhoto = () => {
-    onUpdate('fotoAssinaturaUrl', '');
+  const removePhoto = (urlToRemove: string) => {
+    const filtered = (data.fotosAssinaturaUrls || []).filter(url => url !== urlToRemove);
+    onUpdate('fotosAssinaturaUrls', filtered);
   };
 
   return (
     <div className="section-card space-y-6">
       {/* Área de Upload com Destaque */}
-      <div className="p-6 rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 flex flex-col items-center justify-center text-center space-y-4">
+      <div className="p-6 rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 flex flex-col items-center justify-center text-center space-y-6">
         <div className="space-y-1">
           <h3 className="text-lg font-bold text-primary flex items-center justify-center gap-2">
-            <ImageIcon className="w-5 h-5" /> Folha de Assinaturas
+            <ImageIcon className="w-5 h-5" /> Folhas de Assinaturas
           </h3>
-          <p className="text-sm text-muted-foreground">Suba a foto da folha assinada pelos membros aqui</p>
+          <p className="text-sm text-muted-foreground">Você pode subir várias fotos se a lista for grande</p>
         </div>
         
+        {/* Galeria de Fotos */}
+        {data.fotosAssinaturaUrls && data.fotosAssinaturaUrls.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 w-full">
+            {data.fotosAssinaturaUrls.map((url, index) => (
+              <div key={index} className="relative aspect-square rounded-lg overflow-hidden border bg-background group shadow-sm">
+                <img src={url} alt={`Folha ${index + 1}`} className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Button size="icon" variant="destructive" onClick={() => removePhoto(url)} className="w-8 h-8 rounded-full">
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="absolute top-1 right-1 bg-primary/80 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                  #{index + 1}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="w-full max-w-md">
-          {data.fotoAssinaturaUrl ? (
-            <div className="relative aspect-video rounded-lg overflow-hidden border bg-background group shadow-lg">
-              <img src={data.fotoAssinaturaUrl} alt="Folha de assinaturas" className="w-full h-full object-contain" />
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                <Button size="sm" variant="destructive" onClick={removePhoto} className="gap-2">
-                  <X className="w-4 h-4" /> Remover Foto
-                </Button>
-              </div>
-              <div className="absolute top-3 right-3">
-                <CheckCircle2 className="w-6 h-6 text-success fill-white shadow-sm" />
-              </div>
+          <div className="w-full h-24 flex flex-col items-center justify-center space-y-2 hover:bg-primary/10 transition-colors cursor-pointer relative rounded-lg border-2 border-primary/20 bg-background group">
+            <input 
+              type="file" 
+              multiple 
+              accept="image/*" 
+              onChange={handleFileUpload} 
+              disabled={uploading} 
+              className="absolute inset-0 opacity-0 cursor-pointer" 
+            />
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+              {uploading ? <Upload className="w-5 h-5 text-primary animate-bounce" /> : <Upload className="w-5 h-5 text-primary" />}
             </div>
-          ) : (
-            <div className="w-full h-32 flex flex-col items-center justify-center space-y-2 hover:bg-primary/10 transition-colors cursor-pointer relative rounded-lg border-2 border-primary/20 bg-background">
-              <input type="file" accept="image/*" onChange={handleFileUpload} disabled={uploading} className="absolute inset-0 opacity-0 cursor-pointer" />
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                {uploading ? <Upload className="w-6 h-6 text-primary animate-bounce" /> : <Upload className="w-6 h-6 text-primary" />}
-              </div>
-              <div>
-                <p className="text-sm font-bold text-foreground">{uploading ? 'Enviando imagem...' : 'Clique ou arraste a foto aqui'}</p>
-                <p className="text-xs text-muted-foreground">Tamanho máximo recomendado: 5MB</p>
-              </div>
+            <div>
+              <p className="text-sm font-bold text-foreground">
+                {uploading ? 'Enviando...' : 'Adicionar Fotos'}
+              </p>
+              <p className="text-[10px] text-muted-foreground">Clique para selecionar uma ou mais fotos</p>
             </div>
-          )}
+          </div>
         </div>
       </div>
 

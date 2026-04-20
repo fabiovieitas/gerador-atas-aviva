@@ -7,9 +7,10 @@ import { MemberManagement } from "@/components/MemberManagement";
 import { AtaEditor } from "@/components/AtaEditor";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, FlaskConical, Eraser, Info, DollarSign, MessageSquare, Users, PenTool, CheckCircle2, Circle } from "lucide-react";
+import { FileText, FlaskConical, Eraser, Info, DollarSign, MessageSquare, Users, PenTool, CheckCircle2, Circle, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface Props {
   store: ReturnType<typeof useAtaStore>;
@@ -17,7 +18,32 @@ interface Props {
 
 export function NovaAtaPage({ store }: Props) {
   const [originalTexto, setOriginalTexto] = useState('');
+  const [showDraftDialog, setShowDraftDialog] = useState(false);
   const { formData, membrosPresentes, membros } = store;
+
+  // Verifica se existe rascunho ao montar o componente
+  useEffect(() => {
+    const isDirty = 
+      formData.dataReuniao !== '' || 
+      formData.assuntosPrincipais !== '' || 
+      formData.pastorDirigente !== '' ||
+      membrosPresentes.length > 0;
+
+    if (isDirty) {
+      setShowDraftDialog(true);
+    }
+  }, []); // Só executa ao entrar na página
+
+  const handleStartNew = () => {
+    store.limparFormulario();
+    setShowDraftDialog(false);
+    toast.info("Iniciando nova ata.");
+  };
+
+  const handleContinueDraft = () => {
+    setShowDraftDialog(false);
+    toast.info("Continuando rascunho anterior.");
+  };
 
   const checklist = [
     { label: "Data da reunião preenchida", ok: Boolean(formData.dataReuniao) },
@@ -67,6 +93,27 @@ export function NovaAtaPage({ store }: Props) {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
+      <Dialog open={showDraftDialog} onOpenChange={setShowDraftDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-primary" />
+              Rascunho em andamento
+            </DialogTitle>
+            <DialogDescription>
+              Identificamos que você já iniciou o preenchimento de uma ata. Deseja continuar de onde parou ou iniciar uma nova do zero?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex flex-col sm:flex-row gap-2 mt-4">
+            <Button variant="outline" onClick={handleStartNew} className="flex-1 border-destructive/20 text-destructive hover:bg-destructive/10">
+              Limpar e Iniciar Nova
+            </Button>
+            <Button onClick={handleContinueDraft} className="flex-1">
+              Continuar Rascunho
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {/* Action bar */}
       <div className="flex flex-wrap items-center gap-3">
         <Button onClick={handleGerar} disabled={!checklistCompleto} className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md px-5 py-2.5 text-sm font-semibold disabled:opacity-50">

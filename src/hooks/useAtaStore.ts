@@ -24,6 +24,7 @@ const initialFormData: AtaFormData = {
   mes1: emptyMes(), mes2: emptyMes(), incluirMes2: false,
   aprovadorConselhoFiscal: '', aprovacaoFinanceira: true,
   deliberacoes: [], nomeSecretario: '',
+  fotosAssinaturaUrls: [],
 };
 
 export function useAtaStore() {
@@ -69,7 +70,7 @@ export function useAtaStore() {
             membrosPresentes: (h.dados_json as any)?.membrosPresentes || [],
             ataTexto: h.conteudo || '',
             geradoEm: h.created_at,
-            fotoAssinaturaUrl: h.foto_assinatura_url || '',
+            fotosAssinaturaUrls: (h.dados_json as any)?.fotosAssinaturaUrls || (h.foto_assinatura_url ? [h.foto_assinatura_url] : []),
           })));
         }
       } catch (err) {
@@ -300,7 +301,7 @@ export function useAtaStore() {
       id: Date.now(), titulo, data: d.dataReuniao, tipo: d.tipoAssembleia,
       dados: { ...d }, membrosPresentes: [...membrosPresentes],
       ataTexto: texto, geradoEm: new Date().toISOString(),
-      fotoAssinaturaUrl: d.fotoAssinaturaUrl,
+      fotosAssinaturaUrls: d.fotosAssinaturaUrls || [],
     };
     setHistorico(prev => {
       const filtered = prev.filter(a => !(a.data === d.dataReuniao && a.tipo === d.tipoAssembleia));
@@ -314,9 +315,16 @@ export function useAtaStore() {
         dados_json: { ...d, membrosPresentes },
         church_id: profile.church_id,
         created_by: user.id,
-        foto_assinatura_url: d.fotoAssinaturaUrl
+        // Mantemos a primeira foto na coluna individual para compatibilidade, 
+        // mas a lista completa vai dentro do dados_json
+        foto_assinatura_url: d.fotosAssinaturaUrls?.[0] || null 
       }).then(({ error }) => {
-        if (error) console.error("Erro ao salvar ata no Supabase:", error);
+        if (error) {
+          console.error("Erro ao salvar ata no Supabase:", error);
+          toast.error("Erro ao salvar na nuvem: " + error.message);
+        } else {
+          toast.success("Ata salva na nuvem com sucesso!");
+        }
       });
     }
   }, [formData, membrosPresentes, setHistorico, profile, user]);

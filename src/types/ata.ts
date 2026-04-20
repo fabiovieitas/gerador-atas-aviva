@@ -46,7 +46,7 @@ export interface AtaFormData {
   aprovacaoFinanceira: boolean;
   deliberacoes: Deliberacao[];
   nomeSecretario: string;
-  fotoAssinaturaUrl?: string;
+  fotosAssinaturaUrls?: string[];
 }
 
 export interface AtaHistorico {
@@ -58,5 +58,5 @@ export interface AtaHistorico {
   membrosPresentes: string[];
   ataTexto: string;
   geradoEm: string;
-  fotoAssinaturaUrl?: string;
+  fotosAssinaturaUrls?: string[];
 }

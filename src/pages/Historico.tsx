@@ -196,30 +196,37 @@ export function HistoricoPage() {
                   <Eye className="w-3.5 h-3.5 mr-1" /> Abrir
                 </Button>
                 
-                {(ata.foto_assinatura_url || ata.dados_json?.fotoAssinaturaUrl) && (
+                {(ata.fotosAssinaturaUrls && ata.fotosAssinaturaUrls.length > 0) && (
                   <Dialog>
                     <DialogTrigger asChild>
                       <Button size="sm" variant="outline" className="gap-1 border-cyan-500/20 text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-950/30">
-                        <ImageIcon className="w-3.5 h-3.5" /> Foto
+                        <ImageIcon className="w-3.5 h-3.5" /> Fotos ({ata.fotosAssinaturaUrls.length})
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-3xl">
+                    <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                       <DialogHeader>
-                        <DialogTitle>Folha de Assinaturas - {ata.titulo}</DialogTitle>
+                        <DialogTitle>Folhas de Assinaturas - {ata.titulo}</DialogTitle>
                       </DialogHeader>
-                      <div className="mt-2 rounded-lg overflow-hidden border bg-muted flex items-center justify-center">
-                        <img 
-                          src={ata.foto_assinatura_url || ata.dados_json?.fotoAssinaturaUrl} 
-                          className="max-w-full max-h-[70vh] object-contain" 
-                          alt="Assinaturas"
-                        />
-                      </div>
-                      <div className="flex justify-end gap-2 mt-4">
-                        <Button asChild size="sm" variant="outline">
-                          <a href={ata.foto_assinatura_url || ata.dados_json?.fotoAssinaturaUrl} target="_blank" rel="noreferrer">
-                            <ExternalLink className="w-4 h-4 mr-1" /> Abrir Original
-                          </a>
-                        </Button>
+                      <div className="grid gap-6 mt-4">
+                        {ata.fotosAssinaturaUrls.map((url, i) => (
+                          <div key={i} className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-medium text-muted-foreground">Página {i + 1}</span>
+                              <Button asChild size="sm" variant="ghost" className="h-7 text-[10px]">
+                                <a href={url} target="_blank" rel="noreferrer">
+                                  <ExternalLink className="w-3 h-3 mr-1" /> Original
+                                </a>
+                              </Button>
+                            </div>
+                            <div className="rounded-lg overflow-hidden border bg-muted flex items-center justify-center">
+                              <img 
+                                src={url} 
+                                className="max-w-full h-auto object-contain" 
+                                alt={`Assinaturas página ${i + 1}`}
+                              />
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </DialogContent>
                   </Dialog>
