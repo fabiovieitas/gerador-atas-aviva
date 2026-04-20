@@ -19,6 +19,7 @@ interface AtaRow {
   created_at: string;
   updated_at: string;
   foto_assinatura_url?: string;
+  fotosAssinaturaUrls?: string[];
   church_nome?: string;
   autor_nome?: string;
 }
@@ -65,6 +66,7 @@ export function HistoricoPage() {
           ...a,
           church_nome: a.church_id ? churchMap.get(a.church_id) || "—" : "—",
           autor_nome: profileMap.get(a.created_by) || "—",
+          fotosAssinaturaUrls: a.dados_json?.fotosAssinaturaUrls || (a.foto_assinatura_url ? [a.foto_assinatura_url] : []),
         }));
 
         setAtas(mapped);
@@ -77,6 +79,7 @@ export function HistoricoPage() {
           ...a,
           church_nome: a.churches?.nome || "—",
           autor_nome: a.profiles?.nome || "—",
+          fotosAssinaturaUrls: a.dados_json?.fotosAssinaturaUrls || (a.foto_assinatura_url ? [a.foto_assinatura_url] : []),
         }));
         setAtas(mapped);
       }
