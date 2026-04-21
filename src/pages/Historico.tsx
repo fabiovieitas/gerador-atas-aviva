@@ -314,6 +314,7 @@ export function HistoricoPage() {
                     {ata.autor_nome}
                   </span>
                 </div>
+                </div>
               </div>
               
               <div className="flex flex-wrap items-center gap-2 shrink-0 sm:min-w-[420px] justify-end">
