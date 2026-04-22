@@ -169,7 +169,7 @@ export function HistoricoPage() {
   <title>Livro de Atas ${anoAtual} - ${churchNome}</title>
   <style>
     @page { size: A4; margin: 20mm 15mm; }
-    body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; color: #000; }
+    body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; color: #000; background: #fff; }
     p { text-align: justify; margin: 0 0 8pt 0; line-height: 1.6; }
     h1, h2 { text-align: center; }
     .capa { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 90vh; text-align: center; page-break-after: always; }
@@ -184,18 +184,21 @@ export function HistoricoPage() {
     <p style="font-size:14pt; margin-top:20px;">Volume ${anoAtual}</p>
   </div>
   ${atasHtml}
-  <script>window.onload = function() { window.print(); };<\/script>
 </body>
 </html>`;
 
-    const win = window.open('', '_blank');
-    if (!win) {
-      toast.error("Popups bloqueados! Por favor, permita popups para este site e tente novamente.");
-      return;
-    }
-    win.document.write(html);
-    win.document.close();
-    toast.success("Livro de Atas pronto! A janela de impressão abrirá em instantes.");
+    // Usar Blob + link de download (não requer popup)
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Livro_de_Atas_${anoAtual}.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    toast.success(`Livro de Atas baixado! Abra o arquivo e use Ctrl+P para imprimir/salvar como PDF.`);
     setSelecaoModo(false);
     setAtasSelecionadas([]);
   };
