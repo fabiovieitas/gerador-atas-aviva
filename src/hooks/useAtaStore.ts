@@ -32,17 +32,18 @@ export function useAtaStore() {
   const [historico, setHistorico] = useState<AtaHistorico[]>([]);
   const [formData, setFormData] = useState<AtaFormData>(initialFormData);
   const [membrosPresentes, setMembrosPresentes] = useState<string[]>([]);
-  const { profile, user } = useAuth();
+  const { profile, user, loading: authLoading } = useAuth();
   const [ataGerada, setAtaGerada] = useState('');
   const [defaults, setDefaults] = useLocalStorage<Record<string, string>>('ataDefaults', {});
   const [selectedChurchId, setSelectedChurchId] = useState<string | null>(null);
   const [churchInfo, setChurchInfo] = useState<{nome: string, cnpj: string, endereco: string, logo_url: string} | null>(null);
 
   useEffect(() => {
+    if (authLoading) return;
     if (profile?.church_id && !selectedChurchId) {
       setSelectedChurchId(profile.church_id);
     }
-  }, [profile?.church_id, selectedChurchId]);
+  }, [profile?.church_id, selectedChurchId, authLoading]);
 
   useEffect(() => {
     if (!selectedChurchId) return;
