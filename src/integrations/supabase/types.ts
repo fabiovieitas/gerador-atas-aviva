@@ -14,6 +14,76 @@ export type Database = {
   }
   public: {
     Tables: {
+      assembly_sessions: {
+        Row: {
+          id: string
+          church_id: string | null
+          titulo: string | null
+          tipo: string | null
+          token: string | null
+          is_active: boolean | null
+          created_at: string
+          church_nome: string | null
+        }
+        Insert: {
+          id?: string
+          church_id?: string | null
+          titulo?: string | null
+          tipo?: string | null
+          token?: string | null
+          is_active?: boolean | null
+          created_at?: string
+          church_nome?: string | null
+        }
+        Update: {
+          id?: string
+          church_id?: string | null
+          titulo?: string | null
+          tipo?: string | null
+          token?: string | null
+          is_active?: boolean | null
+          created_at?: string
+          church_nome?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assembly_sessions_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      assembly_attendance: {
+        Row: {
+          id: string
+          session_id: string | null
+          member_name: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          session_id?: string | null
+          member_name?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          session_id?: string | null
+          member_name?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assembly_attendance_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "assembly_sessions"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       ata_edits: {
         Row: {
           ata_id: string
@@ -101,6 +171,8 @@ export type Database = {
           cidade: string | null
           created_at: string
           estado: string | null
+          estatuto_texto: string | null
+          regimento_texto: string | null
           id: string
           nome: string
         }
@@ -108,6 +180,8 @@ export type Database = {
           cidade?: string | null
           created_at?: string
           estado?: string | null
+          estatuto_texto?: string | null
+          regimento_texto?: string | null
           id?: string
           nome: string
         }
@@ -115,6 +189,8 @@ export type Database = {
           cidade?: string | null
           created_at?: string
           estado?: string | null
+          estatuto_texto?: string | null
+          regimento_texto?: string | null
           id?: string
           nome?: string
         }
@@ -203,6 +279,44 @@ export type Database = {
             referencedRelation: "churches"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      membros: {
+        Row: {
+          id: string
+          church_id: string | null
+          nome: string
+          cargo: string | null
+          genero: string | null
+          ativo: boolean | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          church_id?: string | null
+          nome: string
+          cargo?: string | null
+          genero?: string | null
+          ativo?: boolean | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          church_id?: string | null
+          nome?: string
+          cargo?: string | null
+          genero?: string | null
+          ativo?: boolean | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "membros_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          }
         ]
       }
       user_roles: {

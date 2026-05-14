@@ -3,13 +3,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Trash2, Eye, Clock, User, Church, Filter, Image as ImageIcon, Users, ExternalLink, Book, CheckSquare, X } from "lucide-react";
+import { FileText, Trash2, Eye, Clock, User, Church, Filter, Image as ImageIcon, Users, ExternalLink, Book, CheckSquare, X, RefreshCcw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-// Import dinâmico será usado dentro da função para evitar problemas de carregamento estático
+import { useAtaStore } from "@/hooks/useAtaStore";
 // import html2pdf from 'html2pdf.js';
 
 interface AtaRow {
@@ -25,6 +25,7 @@ interface AtaRow {
   fotosAssinaturaUrls?: string[];
   church_nome?: string;
   autor_nome?: string;
+  editor_nome?: string;
 }
 
 interface ChurchOption {
@@ -32,8 +33,12 @@ interface ChurchOption {
   nome: string;
 }
 
-export function HistoricoPage() {
-  const { profile, isAdmin } = useAuth();
+interface Props {
+  store: ReturnType<typeof useAtaStore>;
+}
+
+export function HistoricoPage({ store }: Props) {
+  const { profile, isAdmin, isMaster } = useAuth();
   const navigate = useNavigate();
   const [atas, setAtas] = useState<AtaRow[]>([]);
   const [churches, setChurches] = useState<ChurchOption[]>([]);
@@ -42,15 +47,21 @@ export function HistoricoPage() {
   const [churchFilter, setChurchFilter] = useState<string>("all");
   const [selecaoModo, setSelecaoModo] = useState(false);
   const [atasSelecionadas, setAtasSelecionadas] = useState<string[]>([]);
-  const [churchInfo, setChurchInfo] = useState<{nome: string, cnpj: string, endereco: string, logo_url: string} | null>(null);
+  const [churchInfo, setChurchInfo] = useState<{nome: string} | null>(null);
 
   const fetchAtas = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("atas")
-        .select("*, churches(nome), profiles!atas_created_by_fkey(nome)")
-        .order("created_at", { ascending: false });
+        .select("*, churches(nome), creator:profiles!atas_created_by_fkey(nome), editor:profiles!atas_updated_by_fkey(nome)");
+
+      // Filtra pela igreja selecionada no seletor global (store)
+      if (store.selectedChurchId) {
+        query = query.eq('church_id', store.selectedChurchId);
+      }
+
+      const { data, error } = await query.order("created_at", { ascending: false });
 
       if (error) {
         const { data: fallbackData, error: fallbackError } = await supabase
@@ -84,7 +95,8 @@ export function HistoricoPage() {
         const mapped = (data || []).map((a: any) => ({
           ...a,
           church_nome: a.churches?.nome || "—",
-          autor_nome: a.profiles?.nome || "—",
+          autor_nome: a.creator?.nome || "—",
+          editor_nome: a.editor?.nome || null,
           fotosAssinaturaUrls: a.dados_json?.fotosAssinaturaUrls || (a.foto_assinatura_url ? [a.foto_assinatura_url] : []),
         }));
         setAtas(mapped);
@@ -92,7 +104,7 @@ export function HistoricoPage() {
 
       // Buscar info da igreja atual para o livro de atas
       if (profile?.church_id) {
-        const { data: cData } = await supabase.from("churches").select("nome, cnpj, endereco, logo_url").eq("id", profile.church_id).single();
+        const { data: cData } = await supabase.from("churches").select("nome").eq("id", profile.church_id).single();
         if (cData) setChurchInfo(cData as any);
       }
     } catch (err) {
@@ -104,10 +116,17 @@ export function HistoricoPage() {
   };
 
   useEffect(() => {
-    if (profile) {
+    // Se temos o perfil ou se já sabemos o id da igreja no store
+    if (profile || store.selectedChurchId) {
       fetchAtas();
+    } else {
+      // Se não tem perfil nem igreja no store, mas terminou o auth loading, para de carregar
+      const timer = setTimeout(() => {
+        if (loading) setLoading(false);
+      }, 2000);
+      return () => clearTimeout(timer);
     }
-  }, [profile?.id]);
+  }, [profile?.id, store.selectedChurchId]);
 
   const handleExcluir = async (ata: AtaRow) => {
     const confirmar = window.confirm(`Deseja realmente apagar a ata "${ata.titulo}"?`);
@@ -129,55 +148,79 @@ export function HistoricoPage() {
     );
   };
 
-  const gerarLivroAtas = () => {
-    if (atasSelecionadas.length === 0) {
-      toast.error("Selecione pelo menos uma ata.");
-      return;
-    }
+  // Gera o livro de atas usando uma janela temporária.
+// Caso a abertura da aba seja bloqueada, faz fallback para download de HTML.
+const gerarLivroAtas = async () => {
+  if (atasSelecionadas.length === 0) {
+    toast.error("Selecione pelo menos uma ata.");
+    return;
+  }
+
+  const selecionadas = [...atas.filter(a => atasSelecionadas.includes(a.id))];
+  selecionadas.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+  const anoAtual = new Date().getFullYear();
+  const churchNome = churchInfo?.nome || "Igreja Evangélica AVIVA";
+  const atasHtml = selecionadas.map((ata, index) => {
+    const rawLines = (ata.conteudo || "Conteúdo não encontrado.").split('\n').map(l => l.trim()).filter(Boolean);
     
-    const selecionadas = [...atas.filter(a => atasSelecionadas.includes(a.id))];
-    selecionadas.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    let htmlParts: string[] = [];
+    rawLines.forEach(line => {
+      if (line === '{{ASSINATURAS}}') return;
+      if (line.startsWith('ATA DE ASSEMBLEIA') || line.startsWith('ATA DA ASSEMBLEIA')) {
+        htmlParts.push(`<p class="titulo">${line}</p>`);
+      } else {
+        htmlParts.push(`<p>${line}</p>`);
+      }
+    });
 
-    const anoAtual = new Date().getFullYear();
-    const churchNome = churchInfo?.nome || "Igreja Evangélica AVIVA";
-    const churchLogoCnpjHtml = churchInfo ? `
-      <div style="text-align:center; margin-bottom:30px;">
-        ${churchInfo.logo_url ? `<img src="${churchInfo.logo_url}" style="max-width:100px; max-height:100px; display:block; margin:0 auto 10px;" onerror="this.style.display='none'" />` : ''}
-        <div style="font-size:16pt; font-weight:bold; text-transform:uppercase;">${churchInfo.nome}</div>
-        ${churchInfo.cnpj ? `<div style="font-size:10pt;">CNPJ: ${churchInfo.cnpj}</div>` : ''}
-        ${churchInfo.endereco ? `<div style="font-size:10pt;">${churchInfo.endereco}</div>` : ''}
-        <hr style="margin-top:12px; border:none; border-top:1px solid #000;" />
-      </div>
-    ` : '';
+    const secNome = ata.dados_json?.nomeSecretario || '___';
+    const presNome = ata.dados_json?.pastorDirigente || '___';
+    const signatureHtml = `
+      <div class="assinaturas" style="margin-top: 60px; page-break-inside: avoid;">
+        <table width="100%" cellspacing="0" cellpadding="0">
+          <tr>
+            <td style="width: 45%; border-top: 1px solid black; text-align: center; font-family: 'Calibri', sans-serif; font-size: 11pt; padding-top: 5px;">
+              ${secNome}<br/>
+              <span style="font-size: 10pt;">Secretário(a)</span>
+            </td>
+            <td style="width: 10%;">&nbsp;</td>
+            <td style="width: 45%; border-top: 1px solid black; text-align: center; font-family: 'Calibri', sans-serif; font-size: 11pt; padding-top: 5px;">
+              ${presNome}<br/>
+              <span style="font-size: 10pt;">Pastor 1º Dirigente</span>
+            </td>
+          </tr>
+        </table>
+      </div>`;
+      
+    htmlParts.push(signatureHtml);
+    
+    const quebra = index < selecionadas.length - 1 ? 'style="page-break-after:always;"' : '';
+    return `<div class="ata-page" ${quebra}>${htmlParts.join('\n')}</div>`;
+  }).join('\n');
 
-    const atasHtml = selecionadas.map((ata, index) => {
-      const linhas = (ata.conteudo || "Conteúdo não encontrado.")
-        .split('\n')
-        .map(l => l.trim())
-        .filter(l => l && l !== '{{ASSINATURAS}}')
-        .map(l => `<p>${l}</p>`)
-        .join('');
+  const logoHtml = churchInfo?.logo_url 
+    ? `<img src="${churchInfo.logo_url}" alt="Logo" style="max-height: 120px; max-width: 250px; margin-bottom: 40px;" />` 
+    : '';
 
-      const quebra = index < selecionadas.length - 1 ? 'style="page-break-after:always;"' : '';
-      return `<div ${quebra}>${churchLogoCnpjHtml}${linhas}</div>`;
-    }).join('\n');
-
-    const html = `<!DOCTYPE html>
+  const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
   <title>Livro de Atas ${anoAtual} - ${churchNome}</title>
   <style>
-    @page { size: A4; margin: 20mm 15mm; }
-    body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; color: #000; background: #fff; }
-    p { text-align: justify; margin: 0 0 8pt 0; line-height: 1.6; }
-    h1, h2 { text-align: center; }
+    @page { size: A4; margin: 2.5cm; }
+    body { font-family: 'Calibri', 'Arial', sans-serif; font-size: 13pt; color: #000; background: #fff; text-align: justify; line-height: 1.15; }
+    p { margin: 0; margin-bottom: 11pt; text-indent: 1.25cm; }
+    .titulo { font-weight: bold; text-align: right; margin-left: 5cm; margin-bottom: 24pt; text-indent: 0; text-transform: uppercase; }
+    h1, h2 { text-align: center; margin: 0; padding: 0; }
     .capa { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 90vh; text-align: center; page-break-after: always; }
+    .capa p { text-indent: 0; text-align: center; }
   </style>
 </head>
 <body>
   <div class="capa">
-    ${churchInfo?.logo_url ? `<img src="${churchInfo.logo_url}" style="max-width:150px; max-height:150px; margin-bottom:20px;" onerror="this.style.display='none'" />` : ''}
+    ${logoHtml}
     <h1 style="font-size:36pt; margin-bottom:20px;">LIVRO DE ATAS</h1>
     <h2 style="font-size:24pt; font-weight:normal; text-transform:uppercase;">${churchNome}</h2>
     <p style="font-size:14pt; margin-top:50px;">Registro Oficial de Assembleias</p>
@@ -187,7 +230,27 @@ export function HistoricoPage() {
 </body>
 </html>`;
 
-    // Usar Blob + link de download (não requer popup)
+  // 1️⃣ Tenta abrir uma nova janela para impressão
+  const printWindow = window.open('', '_blank');
+  if (printWindow) {
+    // Escreve o HTML na nova janela
+    printWindow.document.write(html);
+    printWindow.document.close(); // garante que o DOM seja finalizado
+
+    // Espera o carregamento completo (incluindo imagens) antes de imprimir
+    printWindow.onload = () => {
+      // Pequeno delay para garantir que fontes e imagens estejam rendendo
+      setTimeout(() => {
+        printWindow.focus();
+        printWindow.print();
+        // Fecha a janela após a impressão (opcional – pode comentar)
+        // printWindow.close();
+      }, 300);
+    };
+
+    toast.success(`Livro de Atas aberto em nova aba. Use a caixa de impressão para salvar como PDF.`);
+  } else {
+    // 2️⃣ Fallback: download do HTML (pop‑up bloqueado)
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -197,12 +260,15 @@ export function HistoricoPage() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    
-    toast.success(`Livro de Atas baixado! Abra o arquivo e use Ctrl+P para imprimir/salvar como PDF.`);
-    setSelecaoModo(false);
-    setAtasSelecionadas([]);
-  };
 
+    toast.warning(`Pop‑up bloqueado – o livro foi baixado. Abra o arquivo e use Ctrl+P para imprimir.`);
+  }
+
+  // Reseta o modo de seleção apenas depois que a ação de impressão for concluída
+  setSelecaoModo(false);
+  setAtasSelecionadas([]);
+};
+    
   const atasFiltradas = useMemo(() => {
     let result = atas;
     if (churchFilter !== "all") {
@@ -239,13 +305,13 @@ export function HistoricoPage() {
               <Button onClick={() => { setSelecaoModo(false); setAtasSelecionadas([]); }} variant="ghost" size="sm" className="gap-2 text-muted-foreground">
                 <X className="w-4 h-4" /> Cancelar
               </Button>
-              <Button onClick={gerarLivroAtas} disabled={atasSelecionadas.length === 0} size="sm" className="gap-2 bg-primary">
+              <Button onClick={gerarLivroAtas} disabled={atasSelecionadas.length === 0} size="sm" className="gap-2">
                 <Book className="w-4 h-4" /> Gerar Livro ({atasSelecionadas.length})
               </Button>
             </>
           ) : (
-            <Button onClick={() => setSelecaoModo(true)} variant="outline" size="sm" className="gap-2">
-              <CheckSquare className="w-4 h-4" /> Criar Livro de Atas
+            <Button onClick={() => setSelecaoModo(true)} variant="outline" size="sm" className="gap-2 border-primary/20 text-primary hover:bg-primary/5">
+              <CheckSquare className="w-4 h-4" /> Selecionar para Livro
             </Button>
           )}
         </div>
@@ -299,30 +365,43 @@ export function HistoricoPage() {
                 )}
                 <div className="min-w-0 flex-1">
                   <h3 className="font-semibold text-foreground truncate">{ata.titulo}</h3>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    {new Date(ata.created_at).toLocaleDateString("pt-BR")}
-                  </span>
-                  {ata.church_nome && ata.church_nome !== "—" && (
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
-                      <Church className="w-3 h-3" />
-                      {ata.church_nome}
+                      <Clock className="w-3 h-3 text-primary" />
+                      {new Date(ata.created_at).toLocaleDateString("pt-BR")}
                     </span>
-                  )}
-                  <span className="flex items-center gap-1">
-                    <User className="w-3 h-3" />
-                    {ata.autor_nome}
-                  </span>
-                </div>
+                    {ata.church_nome && ata.church_nome !== "—" && (
+                      <span className="flex items-center gap-1">
+                        <Church className="w-3 h-3 text-primary" />
+                        {ata.church_nome}
+                      </span>
+                    )}
+                    <span className="flex items-center gap-1">
+                      <User className="w-3 h-3 text-primary" />
+                      <span className="font-medium text-foreground">{ata.autor_nome}</span>
+                    </span>
+                    {ata.editor_nome && ata.editor_nome !== ata.autor_nome && (
+                      <div className="flex items-center gap-2">
+                        <span className="flex items-center gap-1 italic opacity-80">
+                          <RefreshCcw className="w-3 h-3" />
+                          Edição: {ata.editor_nome}
+                        </span>
+                        {ata.dados_json?.areasModificadas && ata.dados_json.areasModificadas.length > 0 && (
+                          <span className="text-[10px] font-medium text-amber-700 bg-amber-100/50 border border-amber-200 rounded px-2 py-0.5 ml-1">
+                            Alterou: {ata.dados_json.areasModificadas.join(', ')}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
               
-              <div className="flex flex-wrap items-center gap-2 shrink-0 sm:min-w-[420px] justify-end">
+              <div className="flex flex-wrap items-center gap-2 shrink-0 justify-end">
                 <Dialog>
                   <DialogTrigger asChild>
-                    <Button size="sm" variant="outline" className="gap-1.5 border-primary/20 text-primary hover:bg-primary/5 w-[100px]">
-                      <FileText className="w-3.5 h-3.5" /> Ver Ata
+                    <Button size="sm" variant="outline" className="gap-1.5 border-primary/20 text-primary hover:bg-primary/5">
+                      <FileText className="w-3.5 h-3.5" /> Ver
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
@@ -347,14 +426,14 @@ export function HistoricoPage() {
                   </DialogContent>
                 </Dialog>
 
-                <Button size="sm" onClick={() => navigate(`/nova-ata?ata=${ata.id}`)} variant="secondary" className="w-[85px]">
-                  <Eye className="w-3.5 h-3.5 mr-1" /> Editar
+                <Button size="sm" onClick={() => navigate(`/nova-ata?ata=${ata.id}`)} variant="secondary" className="gap-1">
+                  <Eye className="w-3.5 h-3.5" /> Editar
                 </Button>
                 
                 {ata.fotosAssinaturaUrls && ata.fotosAssinaturaUrls.length > 0 ? (
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button size="sm" variant="outline" className="gap-1 border-cyan-500/20 text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-950/30 min-w-[125px]">
+                      <Button size="sm" variant="outline" className="gap-1 border-cyan-500/20 text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-950/30">
                         <ImageIcon className="w-3.5 h-3.5" /> Assinaturas ({ata.fotosAssinaturaUrls.length})
                       </Button>
                     </DialogTrigger>
@@ -374,11 +453,7 @@ export function HistoricoPage() {
                               </Button>
                             </div>
                             <div className="rounded-lg overflow-hidden border bg-muted flex items-center justify-center">
-                              <img 
-                                src={url} 
-                                className="max-w-full h-auto object-contain" 
-                                alt={`Assinaturas página ${i + 1}`}
-                              />
+                              <img src={url} className="max-w-full h-auto object-contain" alt={`Assinaturas página ${i + 1}`} />
                             </div>
                           </div>
                         ))}
@@ -386,7 +461,7 @@ export function HistoricoPage() {
                     </DialogContent>
                   </Dialog>
                 ) : (
-                  <Button size="sm" variant="outline" disabled className="gap-1 opacity-40 min-w-[125px]">
+                  <Button size="sm" variant="outline" disabled className="gap-1 opacity-40">
                     <ImageIcon className="w-3.5 h-3.5" /> Sem Assinaturas
                   </Button>
                 )}
@@ -394,7 +469,7 @@ export function HistoricoPage() {
                 {ata.dados_json?.membrosPresentes ? (
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button size="sm" variant="outline" className="gap-1 w-[110px]">
+                      <Button size="sm" variant="outline" className="gap-1">
                         <Users className="w-3.5 h-3.5" /> Presentes
                       </Button>
                     </DialogTrigger>
@@ -412,21 +487,51 @@ export function HistoricoPage() {
                     </DialogContent>
                   </Dialog>
                 ) : (
-                  <Button size="sm" variant="outline" disabled className="gap-1 opacity-40 w-[110px]">
+                  <Button size="sm" variant="outline" disabled className="gap-1 opacity-40">
                     <Users className="w-3.5 h-3.5" /> Sem Lista
                   </Button>
                 )}
 
-                {isAdmin && (
-                  <Button size="sm" variant="ghost" onClick={() => handleExcluir(ata)} className="text-destructive hover:text-destructive">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
-                )}
+                <Button size="sm" variant="ghost" onClick={() => handleExcluir(ata)} className="text-destructive hover:text-destructive">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      <div className="grid md:grid-cols-2 gap-4 mt-6">
+        {(isAdmin || isMaster) && (
+          <div className="p-4 rounded-2xl bg-indigo-50 border border-indigo-100 flex gap-4">
+            <div className="p-2 bg-indigo-100 rounded-full text-indigo-600 shrink-0 h-fit">
+              <Book className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-bold text-sm text-indigo-800">Livro de Atas Anual</h4>
+              <p className="text-xs text-indigo-700 leading-relaxed mt-1">
+                Use o botão <strong>"Selecionar para Livro"</strong> para marcar as atas que deseja unir em um único arquivo. 
+                O sistema gerará automaticamente uma capa e organizará as páginas para impressão oficial.
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex gap-4">
+          <div className="p-2 bg-slate-200 rounded-full text-slate-600 shrink-0 h-fit">
+            <Filter className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="font-bold text-sm text-slate-800">Busca Inteligente</h4>
+            <p className="text-xs text-slate-700 leading-relaxed mt-1">
+              Você pode buscar por qualquer termo: nome de um membro presente, uma decisão específica ou a data da reunião. 
+              O filtro de igrejas ajuda a organizar o histórico se você gerencia múltiplas unidades.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
+
+

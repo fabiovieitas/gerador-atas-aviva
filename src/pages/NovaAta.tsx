@@ -10,22 +10,49 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, FlaskConical, Eraser, Info, DollarSign, MessageSquare, Users, PenTool, CheckCircle2, Circle, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useState, useMemo, useEffect } from "react";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { PresencaQR } from "@/components/PresencaQR";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Props {
   store: ReturnType<typeof useAtaStore>;
 }
 
 export function NovaAtaPage({ store }: Props) {
+  const { profile } = useAuth();
+  const location = useLocation();
   const [originalTexto, setOriginalTexto] = useState('');
   const [showDraftDialog, setShowDraftDialog] = useState(false);
+  const [searchParams] = useSearchParams();
+  const ataIdParam = searchParams.get('ata');
+
+  // Load ata by ID if present in URL
+  useEffect(() => {
+    if (ataIdParam && typeof store.currentAtaId !== 'string') {
+      store.loadAta(ataIdParam);
+    }
+  }, [ataIdParam, store]);
+
+  // Check for pre-fill data from Agenda
+  useEffect(() => {
+    if (location.state?.preFill) {
+      const data = location.state.preFill;
+      Object.keys(data).forEach((key) => {
+        store.updateField(key as any, data[key]);
+      });
+      toast.success("Dados da reunião carregados da Agenda!");
+      // Limpa o state para não preencher de novo se recarregar
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state, store]);
   const { formData, membrosPresentes, membros } = store;
 
   // Verifica se existe rascunho ao montar o componente
   useEffect(() => {
-    const isDirty = 
-      formData.dataReuniao !== '' || 
-      formData.assuntosPrincipais !== '' || 
+    const isDirty =
+      formData.dataReuniao !== '' ||
+      formData.assuntosPrincipais !== '' ||
       formData.pastorDirigente !== '' ||
       membrosPresentes.length > 0;
 
@@ -75,6 +102,7 @@ export function NovaAtaPage({ store }: Props) {
     }
     const texto = store.gerarAta();
     setOriginalTexto(texto);
+    store.setAtaGerada(texto); // Atualiza o estado para a pré-visualização aparecer
     store.salvarNoHistorico(texto);
     toast.success("Ata gerada e salva no histórico!");
   };
@@ -115,16 +143,29 @@ export function NovaAtaPage({ store }: Props) {
         </DialogContent>
       </Dialog>
       {/* Action bar */}
-      <div className="flex flex-wrap items-center gap-3">
-        <Button onClick={handleGerar} disabled={!checklistCompleto} className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md px-5 py-2.5 text-sm font-semibold disabled:opacity-50">
-          <FileText className="w-4 h-4" /> Gerar Ata
-        </Button>
-        <Button variant="secondary" onClick={handleTeste} className="gap-2 px-4 py-2.5 text-sm">
-          <FlaskConical className="w-4 h-4" /> Ata Teste
-        </Button>
-        <Button variant="outline" onClick={handleLimpar} className="gap-2 px-4 py-2.5 text-sm border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive">
-          <Eraser className="w-4 h-4" /> Limpar
-        </Button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <Button onClick={handleGerar} disabled={!checklistCompleto} className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md px-5 py-2.5 text-sm font-semibold disabled:opacity-50">
+            <FileText className="w-4 h-4" /> 
+            {typeof store.currentAtaId === 'string' ? 'Gerar e Atualizar Ata' : 'Gerar Ata'}
+          </Button>
+          <Button variant="secondary" onClick={handleTeste} className="gap-2 px-4 py-2.5 text-sm">
+            <FlaskConical className="w-4 h-4" /> Ata Teste
+          </Button>
+          <Button variant="outline" onClick={() => { store.loadDefaults(); toast.success("Padrões carregados!"); }} className="gap-2 px-4 py-2.5 text-sm border-primary/30 text-primary hover:bg-primary/5">
+            <PenTool className="w-4 h-4" /> Carregar Padrões
+          </Button>
+          <Button variant="outline" onClick={handleLimpar} className="gap-2 px-4 py-2.5 text-sm border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive">
+            <Eraser className="w-4 h-4" /> Limpar
+          </Button>
+        </div>
+
+        {typeof store.currentAtaId === 'string' && (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 animate-in fade-in zoom-in duration-300">
+            <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+            <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">Editando Ata Existente</span>
+          </div>
+        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -189,7 +230,7 @@ export function NovaAtaPage({ store }: Props) {
         </TabsList>
 
         <TabsContent value="info">
-          <MeetingInfoSection data={store.formData} onUpdate={store.updateField} onSaveDefault={store.saveDefault} membros={store.membros} />
+          <MeetingInfoSection data={store.formData} onUpdate={store.updateField} onSaveDefault={store.saveDefault} membros={store.membros} membrosPresentes={store.membrosPresentes} />
         </TabsContent>
 
         <TabsContent value="financeiro">
@@ -197,7 +238,14 @@ export function NovaAtaPage({ store }: Props) {
         </TabsContent>
 
         <TabsContent value="deliberacoes">
-          <DeliberationsSection deliberacoes={store.deliberacoes} onAdd={store.addDeliberacao} onUpdate={store.updateDeliberacao} onRemove={store.removeDeliberacao} membros={store.membros} />
+          <DeliberationsSection 
+            deliberacoes={store.deliberacoes} 
+            onAdd={store.addDeliberacao} 
+            onUpdate={store.updateDeliberacao} 
+            onRemove={store.removeDeliberacao} 
+            membros={store.membros} 
+            churchInfo={store.churchInfo}
+          />
         </TabsContent>
 
         <TabsContent value="membros">
@@ -212,13 +260,25 @@ export function NovaAtaPage({ store }: Props) {
               onTogglePresenca={store.togglePresenca}
               onSetPresentes={store.setMembrosPresentes}
             />
+            
+            {/* QR Code para 2º secretário marcar presenças via celular */}
+            <PresencaQR
+              membros={store.membros.filter(m => m.ativo)}
+              membrosPresentes={store.membrosPresentes}
+              churchId={profile?.church_id}
+              churchNome={store.churchInfo?.nome}
+              onSync={store.setMembrosPresentes}
+              sessionId={store.presenceSessionId}
+              setSessionId={store.setPresenceSessionId}
+            />
+
             {store.membros.length > 0 && (
               <div className="space-y-2 mt-4">
                 <p className="text-sm font-semibold text-muted-foreground">
                   {store.membrosPresentes.length} de {store.membros.length} presente(s)
                 </p>
                 <div className="grid sm:grid-cols-2 gap-2">
-                  {store.membros.map((m, i) => (
+                  {store.membros.filter(m => m.ativo).map((m, i) => (
                     <button
                       key={i}
                       type="button"

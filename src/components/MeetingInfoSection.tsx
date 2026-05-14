@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Save, Clock, Image as ImageIcon, Upload, X, CheckCircle2 } from "lucide-react";
+import { Save, Clock, Image as ImageIcon, Upload, X, CheckCircle2, AlertCircle } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { MemberMentionInput } from "@/components/MemberMentionInput";
 import type { AtaFormData, Membro } from "@/types/ata";
@@ -16,9 +16,10 @@ interface Props {
   onUpdate: <K extends keyof AtaFormData>(field: K, value: AtaFormData[K]) => void;
   onSaveDefault: (key: string, value: string) => void;
   membros: Membro[];
+  membrosPresentes?: string[];
 }
 
-export function MeetingInfoSection({ data, onUpdate, onSaveDefault, membros }: Props) {
+export function MeetingInfoSection({ data, onUpdate, onSaveDefault, membros, membrosPresentes = [] }: Props) {
   const [uploading, setUploading] = useState(false);
   const now = () => new Date().toTimeString().slice(0, 5);
 
@@ -159,10 +160,50 @@ export function MeetingInfoSection({ data, onUpdate, onSaveDefault, membros }: P
         </div>
       </div>
 
-      <div className="flex items-center gap-2 mt-4">
-        <Checkbox checked={data.semQuorum} onCheckedChange={v => onUpdate('semQuorum', !!v)} id="semQuorum" />
-        <Label htmlFor="semQuorum" className="font-normal">Não houve quórum na 1ª chamada</Label>
-      </div>
+      {/* Quorum Warning Section */}
+      {membros.length > 0 && (
+        <div className={`mt-6 p-4 rounded-xl border ${membrosPresentes.length >= Math.ceil((membros.length * 2) / 3) ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
+          <div className="flex items-start gap-3">
+            {membrosPresentes.length >= Math.ceil((membros.length * 2) / 3) ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+            ) : (
+              <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            )}
+            <div className="space-y-3 flex-1">
+              <div>
+                <h4 className={`text-sm font-bold ${membrosPresentes.length >= Math.ceil((membros.length * 2) / 3) ? 'text-emerald-800' : 'text-amber-800'}`}>
+                  {membrosPresentes.length >= Math.ceil((membros.length * 2) / 3) 
+                    ? "Quórum Mínimo Atingido (2/3)" 
+                    : "Quórum Insuficiente na 1ª Chamada"}
+                </h4>
+                <p className={`text-xs mt-1 ${membrosPresentes.length >= Math.ceil((membros.length * 2) / 3) ? 'text-emerald-600' : 'text-amber-700'}`}>
+                  De acordo com o Art. 53 do Estatuto, é necessário 2/3 dos membros ({Math.ceil((membros.length * 2) / 3)} de {membros.length}) para abrir a sessão. 
+                  Atualmente há {membrosPresentes.length} presentes.
+                </p>
+              </div>
+
+              {membrosPresentes.length < Math.ceil((membros.length * 2) / 3) && (
+                <div className="bg-white/60 p-3 rounded-lg border border-amber-200/50">
+                  <div className="flex items-center gap-2">
+                    <Checkbox checked={data.semQuorum} onCheckedChange={v => onUpdate('semQuorum', !!v)} id="semQuorum" className="border-amber-400 data-[state=checked]:bg-amber-600 data-[state=checked]:text-white" />
+                    <Label htmlFor="semQuorum" className="font-semibold text-amber-900 cursor-pointer text-sm">
+                      Confirmar que não houve quórum (Abre em 2ª chamada)
+                    </Label>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Checkbox fallback if no members registered */}
+      {membros.length === 0 && (
+        <div className="flex items-center gap-2 mt-4">
+          <Checkbox checked={data.semQuorum} onCheckedChange={v => onUpdate('semQuorum', !!v)} id="semQuorum" />
+          <Label htmlFor="semQuorum" className="font-normal">Não houve quórum na 1ª chamada</Label>
+        </div>
+      )}
 
       {data.semQuorum && (
         <div className="mt-3">

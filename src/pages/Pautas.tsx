@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Plus, Trash2, FileText, Calendar, MapPin, Printer, ArrowRight } from "lucide-react";
+import { Plus, Trash2, FileText, Calendar, MapPin, Printer, ArrowRight, ClipboardList } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAtaStore } from "@/hooks/useAtaStore";
 
@@ -18,7 +18,7 @@ interface Pauta {
 }
 
 export function PautasPage() {
-  const { profile } = useAuth();
+  const { profile, isAdmin, isMaster } = useAuth();
   const navigate = useNavigate();
   const store = useAtaStore();
   const [pautas, setPautas] = useState<Pauta[]>([]);
@@ -280,6 +280,36 @@ export function PautasPage() {
           ))
         )}
       </div>
+
+      {(isAdmin || isMaster) && (
+        <div className="grid md:grid-cols-2 gap-4 mt-6">
+          <div className="p-4 rounded-2xl bg-sky-50 border border-sky-100 flex gap-4">
+            <div className="p-2 bg-sky-100 rounded-full text-sky-600 shrink-0 h-fit">
+              <ClipboardList className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-bold text-sm text-sky-800">Do Planejamento à Ata</h4>
+              <p className="text-xs text-sky-700 leading-relaxed mt-1">
+                Ao clicar em <strong>"Gerar Ata"</strong>, todos os tópicos da pauta são levados para o editor. Isso garante que nenhum assunto planejado seja esquecido no registro oficial.
+              </p>
+            </div>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex gap-4">
+            <div className="p-2 bg-slate-200 rounded-full text-slate-600 shrink-0 h-fit">
+              <Printer className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-bold text-sm text-slate-800">Guia da Reunião</h4>
+              <p className="text-xs text-slate-700 leading-relaxed mt-1">
+                Imprima a pauta e distribua para os membros da mesa. O documento impresso possui espaços para marcação (check), ajudando a manter o foco durante a assembleia.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+

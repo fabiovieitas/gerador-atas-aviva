@@ -1,7 +1,9 @@
 export interface Membro {
+  id?: string;
   nome: string;
   cargo: string;
   genero: 'masculino' | 'feminino';
+  ativo: boolean;
   created_at?: string;
 }
 
@@ -17,6 +19,9 @@ export interface DadosFinanceiros {
 export interface Deliberacao {
   id: string;
   texto: string;
+  isTask?: boolean;
+  taskResponsible?: string;
+  taskDeadline?: string;
 }
 
 export interface AtaFormData {

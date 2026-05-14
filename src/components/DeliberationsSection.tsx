@@ -1,14 +1,20 @@
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, GripVertical } from "lucide-react";
+import { Plus, Trash2, GripVertical, CheckSquare, Scale } from "lucide-react";
+import { useState } from "react";
+import { EstatutoSearchModal } from "./EstatutoSearchModal";
 import { MemberMentionTextarea } from "@/components/MemberMentionTextarea";
 import type { Deliberacao, Membro } from "@/types/ata";
 
 interface Props {
   deliberacoes: Deliberacao[];
   onAdd: () => void;
-  onUpdate: (id: string, texto: string) => void;
+  onUpdate: (id: string, updates: Partial<Deliberacao>) => void;
   onRemove: (id: string) => void;
   membros: Membro[];
+  churchInfo?: {
+    estatuto_texto?: string;
+    regimento_texto?: string;
+  } | null;
 }
 
 const FRASES_AUXILIO = [
@@ -48,7 +54,23 @@ function inserirFrase(textoAtual: string, frase: string) {
   return `${t} ${frase}`;
 }
 
-export function DeliberationsSection({ deliberacoes, onAdd, onUpdate, onRemove, membros }: Props) {
+export function DeliberationsSection({ deliberacoes, onAdd, onUpdate, onRemove, membros, churchInfo }: Props) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activeDelId, setActiveDelId] = useState<string | null>(null);
+
+  const openModal = (id: string) => {
+    setActiveDelId(id);
+    setIsModalOpen(true);
+  };
+
+  const handleSelect = (text: string) => {
+    if (activeDelId) {
+      const del = deliberacoes.find(d => d.id === activeDelId);
+      if (del) {
+        onUpdate(activeDelId, { texto: inserirFrase(del.texto, text) });
+      }
+    }
+  };
   return (
     <div className="section-card">
       <h2 className="section-title">Registros da Assembleia</h2>
@@ -64,9 +86,15 @@ export function DeliberationsSection({ deliberacoes, onAdd, onUpdate, onRemove, 
                 <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold">{i + 1}</span>
                 <span className="text-sm font-semibold text-foreground">Registro {i + 1}</span>
               </div>
-              <Button type="button" variant="ghost" size="sm" onClick={() => onRemove(del.id)} className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0 rounded-full">
-                <Trash2 className="w-4 h-4" />
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button type="button" variant="ghost" size="sm" onClick={() => openModal(del.id)} className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 h-8 gap-1.5 px-2">
+                  <Scale className="w-3.5 h-3.5" />
+                  <span className="text-xs font-bold">Citar Base Legal</span>
+                </Button>
+                <Button type="button" variant="ghost" size="sm" onClick={() => onRemove(del.id)} className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0 rounded-full">
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
 
             <div className="flex flex-wrap gap-1.5 mb-3">
@@ -75,7 +103,7 @@ export function DeliberationsSection({ deliberacoes, onAdd, onUpdate, onRemove, 
                   key={frase}
                   type="button"
                   className={`h-7 px-2.5 rounded-full text-xs font-medium transition-colors ${FRASE_COLORS[fi % FRASE_COLORS.length]}`}
-                  onClick={() => onUpdate(del.id, inserirFrase(del.texto, frase))}
+                  onClick={() => onUpdate(del.id, { texto: inserirFrase(del.texto, frase) })}
                 >
                   {frase.trim()}
                 </button>
@@ -84,11 +112,55 @@ export function DeliberationsSection({ deliberacoes, onAdd, onUpdate, onRemove, 
 
             <MemberMentionTextarea
               value={del.texto}
-              onChange={(v) => onUpdate(del.id, v)}
+              onChange={(v) => onUpdate(del.id, { texto: v })}
               membros={membros}
               placeholder="Descreva o que foi dito ou deliberado..."
               rows={3}
             />
+
+            {/* Item 8: Toggle de Pendência */}
+            <div className="mt-4 pt-4 border-t border-dashed flex flex-col sm:flex-row sm:items-center gap-4">
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <div className={`p-1.5 rounded-lg transition-colors ${del.isTask ? 'bg-amber-100 text-amber-700' : 'bg-muted text-muted-foreground group-hover:bg-muted/80'}`}>
+                  <CheckSquare className="w-4 h-4" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold text-foreground">Gerar Pendência</span>
+                  <span className="text-[10px] text-muted-foreground leading-none">Criar tarefa para acompanhamento</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={del.isTask || false}
+                  onChange={(e) => onUpdate(del.id, { isTask: e.target.checked })}
+                  className="ml-2 h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                />
+              </label>
+
+              {del.isTask && (
+                <div className="flex-1 flex flex-col sm:flex-row gap-2 animate-in fade-in slide-in-from-left-2 duration-200">
+                  <div className="flex-1">
+                    <select
+                      value={del.taskResponsible || ""}
+                      onChange={(e) => onUpdate(del.id, { taskResponsible: e.target.value })}
+                      className="w-full h-9 rounded-lg border border-input bg-background px-3 text-xs focus:ring-1 focus:ring-amber-500 outline-none"
+                    >
+                      <option value="">Selecione o Responsável</option>
+                      {membros.map(m => (
+                        <option key={m.nome} value={m.nome}>{m.nome}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="sm:w-40">
+                    <input
+                      type="date"
+                      value={del.taskDeadline || ""}
+                      onChange={(e) => onUpdate(del.id, { taskDeadline: e.target.value })}
+                      className="w-full h-9 rounded-lg border border-input bg-background px-3 text-xs focus:ring-1 focus:ring-amber-500 outline-none"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         ))}
       </div>
@@ -96,6 +168,14 @@ export function DeliberationsSection({ deliberacoes, onAdd, onUpdate, onRemove, 
       <Button type="button" onClick={onAdd} className="mt-4 gap-2 bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20" variant="outline">
         <Plus className="w-4 h-4" /> Adicionar registro
       </Button>
+
+      <EstatutoSearchModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        estatutoTexto={churchInfo?.estatuto_texto}
+        regimentoTexto={churchInfo?.regimento_texto}
+        onSelect={handleSelect}
+      />
     </div>
   );
 }

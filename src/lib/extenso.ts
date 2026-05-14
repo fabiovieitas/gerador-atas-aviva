@@ -60,6 +60,10 @@ function inteiroExtenso(n: number): string {
   return partes.join(', ') + ' e ' + last;
 }
 
+export function numeroPorExtenso(n: number): string {
+  return inteiroExtenso(n);
+}
+
 /**
  * Converts a currency string like "R$1.389,70" to extenso.
  * Returns: "R$1.389,70 (mil, trezentos e oitenta e nove reais e setenta centavos)"

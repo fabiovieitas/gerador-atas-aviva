@@ -16,7 +16,7 @@ interface Props {
 }
 
 export function MembrosPage({ store }: Props) {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isMaster } = useAuth();
   const [churches, setChurches] = useState<{id: string, nome: string}[]>([]);
   const [filtroNomeRelatorio, setFiltroNomeRelatorio] = useState("");
   const [filtroAnoRelatorio, setFiltroAnoRelatorio] = useState("");
@@ -284,6 +284,7 @@ export function MembrosPage({ store }: Props) {
                 <SelectValue placeholder="Selecione a igreja" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="all">Todas as igrejas</SelectItem>
                 {churches.map(c => (
                   <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
                 ))}
@@ -292,6 +293,60 @@ export function MembrosPage({ store }: Props) {
           </div>
         )}
       </div>
+
+      {(isAdmin || isMaster) && store.selectedChurchId === 'all' && (
+        <div className="p-4 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-sm flex items-start gap-3">
+          <Church className="w-5 h-5 shrink-0 mt-0.5" />
+          <p>
+            <strong>Você está no modo Global.</strong><br/> 
+            Para gerenciar a lista de membros ou gerar relatórios de presença, por favor, <strong>selecione uma igreja específica</strong> no menu acima. A separação por igreja é obrigatória nesta página para evitar confusão.
+          </p>
+        </div>
+      )}
+
+      {/* Item 10: Alerta de Membros Ausentes (Cuidado Pastoral) */}
+      {store.selectedChurchId !== 'all' && (
+        <>
+          {store.membros.length > 0 && (store.historico?.length || 0) >= 2 && (
+        <div className="p-4 rounded-2xl bg-red-50 border border-red-100 space-y-3">
+          <div className="flex items-center gap-2 text-red-800">
+            <div className="p-1.5 bg-red-100 rounded-lg">
+              <Users className="w-4 h-4" />
+            </div>
+            <h3 className="font-bold text-sm">Cuidado Pastoral: Membros Ausentes</h3>
+          </div>
+          <p className="text-xs text-red-700 leading-relaxed">
+            Os membros abaixo não constam como presentes nas últimas <strong>{Math.min(store.historico?.length || 0, 3)}</strong> reuniões. 
+            Considere uma visita ou contato para cuidado.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {store.membros.filter(m => m.ativo).filter(m => {
+              const ultimasAtas = [...(store.historico || [])].slice(0, 3);
+              const atasValidas = ultimasAtas.filter(ata => !m.created_at || new Date(ata.data) >= new Date(m.created_at));
+              if (atasValidas.length === 0) return true;
+              return atasValidas.every(ata => ata.membrosPresentes?.includes(m.nome));
+            }).length === store.membros.filter(m => m.ativo).length ? (
+               <p className="text-xs text-green-600 font-medium">✨ Todos os membros participaram recentemente!</p>
+            ) : (
+              store.membros.filter(m => m.ativo).filter(m => {
+                const ultimasAtas = [...(store.historico || [])].slice(0, 3);
+                const atasValidas = ultimasAtas.filter(ata => !m.created_at || new Date(ata.data) >= new Date(m.created_at));
+                
+                // Se o membro é novo e não teve nenhuma reunião válida ainda, não é considerado ausente
+                if (atasValidas.length === 0) return false;
+                
+                // É considerado ausente apenas se faltou em TODAS as reuniões válidas para ele
+                return atasValidas.every(ata => !ata.membrosPresentes?.includes(m.nome));
+              }).map(m => (
+                <span key={m.nome} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white border border-red-200 text-red-700 text-[10px] font-bold shadow-sm">
+                  <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                  {m.nome}
+                </span>
+              ))
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="section-card space-y-4">
         <h2 className="section-title">Gerenciar Membros</h2>
@@ -329,9 +384,12 @@ export function MembrosPage({ store }: Props) {
           </h2>
           <div className="grid sm:grid-cols-2 gap-2">
             {store.membros.map((m, i) => (
-              <div key={i} className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/30 transition-colors">
+              <div key={i} className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${m.ativo ? 'bg-card hover:bg-muted/30' : 'bg-muted/50 opacity-70'}`}>
                 <div className="min-w-0">
-                  <p className="font-medium text-foreground text-sm truncate">{m.nome}</p>
+                  <p className="font-medium text-foreground text-sm flex items-center gap-2">
+                    {m.nome}
+                    {!m.ativo && <span className="text-[10px] bg-muted-foreground/20 px-1.5 py-0.5 rounded text-muted-foreground font-normal">Inativo</span>}
+                  </p>
                   <p className="text-xs text-muted-foreground">{m.cargo} • {m.genero === 'feminino' ? 'Feminino' : 'Masculino'}</p>
                 </div>
               </div>
@@ -406,13 +464,39 @@ export function MembrosPage({ store }: Props) {
               const ausentes = todosNomesNaEpoca.filter((nome) => !ata.membrosPresentes.includes(nome));
 
               return (
-                <div key={ata.id} className="rounded-lg border p-3 bg-card space-y-2">
-                  <p className="text-sm font-semibold">{ata.titulo}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(ata.geradoEm).toLocaleString("pt-BR")} • {ata.tipo}
-                  </p>
-                  <p className="text-xs"><strong>Presentes ({presentes.length}):</strong> {presentes.length ? presentes.join(", ") : "Nenhum"}</p>
-                  <p className="text-xs"><strong>Ausentes ({ausentes.length}):</strong> {ausentes.length ? ausentes.join(", ") : "Nenhum"}</p>
+                <div key={ata.id} className="rounded-xl border bg-card p-4 space-y-3 shadow-sm">
+                  <div className="flex items-start justify-between gap-2 flex-wrap">
+                    <div>
+                      <p className="text-sm font-bold text-foreground">{ata.titulo}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {new Date(ata.geradoEm).toLocaleDateString("pt-BR", { day: '2-digit', month: 'long', year: 'numeric' })} • {ata.tipo}
+                      </p>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <span className="text-xs bg-green-100 text-green-800 border border-green-200 rounded-full px-2 py-0.5 font-semibold">{presentes.length} presentes</span>
+                      <span className="text-xs bg-red-100 text-red-800 border border-red-200 rounded-full px-2 py-0.5 font-semibold">{ausentes.length} ausentes</span>
+                    </div>
+                  </div>
+                  {presentes.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-green-700 mb-1.5">✅ Presentes</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {presentes.map((nome) => (
+                          <span key={nome} className="text-xs bg-green-50 text-green-800 border border-green-200 rounded-md px-2 py-0.5">{nome}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {ausentes.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-red-700 mb-1.5">❌ Ausentes</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {ausentes.map((nome) => (
+                          <span key={nome} className="text-xs bg-red-50 text-red-800 border border-red-200 rounded-md px-2 py-0.5">{nome}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -427,6 +511,38 @@ export function MembrosPage({ store }: Props) {
           <p className="text-sm text-muted-foreground mt-1">Use os botões acima para adicionar ou importar membros.</p>
         </div>
       )}
+
+      {(isAdmin || isMaster) && (
+        <div className="grid md:grid-cols-2 gap-4 mt-6">
+          <div className="p-4 rounded-2xl bg-teal-50 border border-teal-100 flex gap-4">
+            <div className="p-2 bg-teal-100 rounded-full text-teal-600 shrink-0 h-fit">
+              <Users className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-bold text-sm text-teal-800">Organização por Cargos</h4>
+              <p className="text-xs text-teal-700 leading-relaxed mt-1">
+                Manter o cargo e o gênero atualizados ajuda o sistema a gerar o texto da ata corretamente (ex: "o Pastor", "a Secretária"), evitando ajustes manuais no editor.
+              </p>
+            </div>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-amber-50 border border-amber-100 flex gap-4">
+            <div className="p-2 bg-amber-100 rounded-full text-amber-600 shrink-0 h-fit">
+              <FileSpreadsheet className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-bold text-sm text-amber-800">Relatórios de Presença</h4>
+              <p className="text-xs text-amber-700 leading-relaxed mt-1">
+                Os relatórios em Excel são ótimos para reuniões de conselho. Você consegue ver o histórico de fidelidade e participação de cada membro nas assembleias.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      </>
+      )}
     </div>
   );
 }
+
+

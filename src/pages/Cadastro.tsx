@@ -21,45 +21,48 @@ export function CadastroPage() {
   const [validating, setValidating] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [invite, setInvite] = useState<{ nome: string; email: string } | null>(null);
+  const [invite, setInvite] = useState<{ nome: string; email: string; role: string; church_id?: string } | null>(null);
   const [error, setError] = useState('');
   const [isFirstUser, setIsFirstUser] = useState(false);
 
   useEffect(() => {
-    // 1. Verifica se o sistema tem usuários
-    supabase.from('profiles').select('*', { count: 'exact', head: true }).then(({ count, error: countErr }) => {
-      if (!countErr && count === 0) {
-        // Primeiro Acesso! Libera para criar Master sem convite
-        setIsFirstUser(true);
+    // 0. Por segurança, se o usuário entrar nesta página para se cadastrar, 
+    // garantimos que qualquer sessão anterior seja encerrada.
+    if (token) {
+      supabase.auth.signOut().then(() => {
+        // Limpa o estado local de isFirstUser se houver token
+        setIsFirstUser(false);
+      });
+    }
+    
+    // 1. Se não tem token, verificamos se o sistema está vazio para permitir setup inicial
+    if (!token) {
+      // Usamos uma consulta simples apenas para saber se existe alguém
+      supabase.from('profiles').select('id', { count: 'exact', head: true }).then(({ count }) => {
+        setIsFirstUser(count === 0);
         setValidating(false);
-      } else {
-        // Já tem gente. Exige o convite!
-        if (!token) {
-          setError('O sistema é restrito a convidados. Solicite um link de convite.');
-          setValidating(false);
-          return;
-        }
+      });
+      return;
+    }
 
-        // Validate invite token
-        supabase
-          .from('invites')
-          .select('nome, email, used, expires_at')
-          .eq('token', token)
-          .single()
-          .then(({ data, error: err }) => {
-            if (err || !data) {
-              setError('Convite não encontrado.');
-            } else if (data.used) {
-              setError('Este convite já foi utilizado.');
-            } else if (new Date(data.expires_at) < new Date()) {
-              setError('Este convite expirou. Solicite um novo.');
-            } else {
-              setInvite({ nome: data.nome, email: data.email });
-            }
-            setValidating(false);
-          });
-      }
-    });
+    // Se tem token, validamos o convite
+    supabase
+      .from('invites')
+      .select('nome, email, role, used, expires_at, church_id')
+      .eq('token', token)
+      .single()
+      .then(({ data, error: err }) => {
+        if (err || !data) {
+          setError('Convite não encontrado ou inválido.');
+        } else if (data.used) {
+          setError('Este convite já foi utilizado.');
+        } else if (new Date(data.expires_at) < new Date()) {
+          setError('Este convite expirou. Solicite um novo.');
+        } else {
+          setInvite({ nome: data.nome, email: data.email, role: data.role, church_id: data.church_id });
+        }
+        setValidating(false);
+      });
   }, [token]);
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -84,7 +87,7 @@ export function CadastroPage() {
     setLoading(true);
     
     // Usando SignUp padrão
-    const { error: signUpError } = await supabase.auth.signUp({
+    const { data: authData, error: signUpError } = await supabase.auth.signUp({
       email: emailToUse,
       password,
       options: {
@@ -100,9 +103,23 @@ export function CadastroPage() {
       return;
     }
 
-    // Se usou convite, marca como utilizado
-    if (!isFirstUser && token) {
-      await supabase.from('invites').update({ used: true }).eq('token', token);
+    // O Perfil, Cargo e Igreja serão definidos EXCLUSIVAMENTE pela Via Expressa (RPC).
+    if (authData.user) {
+      // Chamamos a função mestre que faz tudo de uma vez só no banco
+      if (token && !isFirstUser) {
+        const { error: rpcError } = await supabase.rpc('complete_registration', { 
+          p_token: token, 
+          p_user_id: authData.user.id,
+          p_nome: nomeToUse
+        });
+        
+        if (rpcError) {
+          console.error("Erro no registro:", rpcError);
+          toast.error("Houve um problema ao finalizar seu perfil: " + rpcError.message);
+          setLoading(false);
+          return;
+        }
+      }
     }
 
     setSuccess(true);
@@ -171,11 +188,11 @@ export function CadastroPage() {
           <div>
             <Label className="form-label">Nome</Label>
             <Input 
-              value={isFirstUser ? nome : (invite?.nome || '')} 
-              onChange={e => isFirstUser && setNome(e.target.value)}
-              disabled={!isFirstUser} 
-              className={!isFirstUser ? "bg-muted" : ""} 
-              placeholder={isFirstUser ? "Seu nome completo" : ""}
+              value={isFirstUser ? nome : (token ? (invite?.nome || '') : nome)} 
+              onChange={e => (isFirstUser || !token) && setNome(e.target.value)}
+              disabled={!isFirstUser && !!token} 
+              className={(!isFirstUser && !!token) ? "bg-muted" : ""} 
+              placeholder={(isFirstUser || !token) ? "Seu nome completo" : ""}
               required 
             />
           </div>
@@ -183,11 +200,11 @@ export function CadastroPage() {
             <Label className="form-label">Email</Label>
             <Input 
               type="email"
-              value={isFirstUser ? email : (invite?.email || '')} 
-              onChange={e => isFirstUser && setEmail(e.target.value)}
-              disabled={!isFirstUser} 
-              className={!isFirstUser ? "bg-muted" : ""} 
-              placeholder={isFirstUser ? "seu@email.com" : ""}
+              value={isFirstUser ? email : (token ? (invite?.email || '') : email)} 
+              onChange={e => (isFirstUser || !token) && setEmail(e.target.value)}
+              disabled={!isFirstUser && !!token} 
+              className={(!isFirstUser && !!token) ? "bg-muted" : ""} 
+              placeholder={(isFirstUser || !token) ? "seu@email.com" : ""}
               required 
             />
           </div>

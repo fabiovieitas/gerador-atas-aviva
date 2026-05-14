@@ -74,12 +74,20 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Update profile with church_id
-    if (invite.church_id && newUser.user) {
-      await adminClient
+    // Ensure profile exists and has the church_id (using upsert)
+    if (newUser.user) {
+      const { error: profileError } = await adminClient
         .from("profiles")
-        .update({ church_id: invite.church_id })
-        .eq("user_id", newUser.user.id);
+        .upsert({ 
+          user_id: newUser.user.id,
+          nome: invite.nome,
+          email: invite.email,
+          church_id: invite.church_id || null 
+        }, { onConflict: 'user_id' });
+        
+      if (profileError) {
+        console.error('Error upserting profile:', profileError);
+      }
     }
 
     // Set role (trigger already sets 'user', update if different)

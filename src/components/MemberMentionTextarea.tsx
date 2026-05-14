@@ -89,6 +89,13 @@ export function MemberMentionTextarea({ value, onChange, membros, placeholder, r
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, [value]);
+
   return (
     <div className="relative">
       <Textarea
@@ -98,6 +105,7 @@ export function MemberMentionTextarea({ value, onChange, membros, placeholder, r
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         rows={rows}
+        className="resize-none overflow-hidden"
       />
       {showSuggestions && filtered.length > 0 && (
         <div ref={listRef} className="absolute z-50 mt-1 w-full max-h-48 overflow-auto rounded-lg border bg-popover shadow-lg">

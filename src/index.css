@@ -206,4 +206,21 @@
   .stat-icon {
     @apply w-12 h-12 rounded-lg flex items-center justify-center;
   }
+
+  /* Hide scrollbars while keeping functionality (Fix for Edge/Chrome) */
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Global Sidebar Scrollbar Cleanup (Edge specific fix) */
+[data-sidebar="sidebar"] * {
+  -ms-overflow-style: none !important;
+}
+[data-sidebar="sidebar"] *::-webkit-scrollbar {
+  display: none !important;
 }

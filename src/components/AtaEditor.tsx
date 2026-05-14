@@ -1,11 +1,12 @@
 import { Button } from "@/components/ui/button";
-import { Copy, Download, Pencil, Eye, RotateCcw, Bold, Italic, Underline as UnderlineIcon, AlignLeft, AlignCenter, AlignJustify, Minus, Plus, Undo2, Redo2, FileText, FileDown } from "lucide-react";
+import { Copy, Download, Pencil, Eye, RotateCcw, Bold, Italic, Underline as UnderlineIcon, AlignLeft, AlignCenter, AlignJustify, Minus, Plus, Undo2, Redo2, FileText, FileDown, Scale } from "lucide-react";
 import { toast } from "sonner";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import html2pdf from 'html2pdf.js';
 import { supabase } from '@/integrations/supabase/client';
+import { EstatutoSearchModal } from "./EstatutoSearchModal";
 
 
 interface SignatureData {
@@ -20,6 +21,8 @@ interface ChurchInfo {
   cnpj: string;
   endereco: string;
   logo_url: string;
+  estatuto_texto?: string;
+  regimento_texto?: string;
 }
 
 interface Props {
@@ -33,8 +36,9 @@ interface Props {
 export function AtaEditor({ ataTexto, onUpdate, originalTexto, signatureData, churchInfo }: Props) {
   const [editing, setEditing] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
-  const [fontSize, setFontSize] = useState(12);
+  const [fontSize, setFontSize] = useState(13);
   const [houveEdicao, setHouveEdicao] = useState(false);
+  const [isEstatutoModalOpen, setIsEstatutoModalOpen] = useState(false);
 
   // Sync content into the contentEditable div when switching to edit mode or when ataTexto changes externally
   useEffect(() => {
@@ -93,178 +97,107 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto, signatureData, ch
       }
       
       // Signature placeholder
-      if (line.trim() === '{{ASSINATURAS}}') {
+      if (line.trim() === '{{ASSINATURAS}}' && signatureData) {
+        htmlParts.push(`
+          <div class="assinaturas">
+            <div class="assinatura-box">
+              <div class="linha"></div>
+              <p><strong>${signatureData.presidenteNome}</strong></p>
+              <p>${signatureData.presidenteCargo}</p>
+            </div>
+            <div class="assinatura-box">
+              <div class="linha"></div>
+              <p><strong>${signatureData.secretarioNome}</strong></p>
+              <p>${signatureData.secretarioCargo}</p>
+            </div>
+          </div>
+        `);
         continue;
       }
       
       // Empty lines
       if (!line.trim()) {
+        htmlParts.push('<br/>');
         continue;
       }
       
-      // Regular paragraph (all text is continuous, no section headers)
-      htmlParts.push(`<p>${line.trim()}</p>`);
+      // Regular paragraphs
+      htmlParts.push(`<p>${line}</p>`);
     }
     
-    // Add signature block
-    if (raw.includes('{{ASSINATURAS}}')) {
-      htmlParts.push(`<div class="assinaturas">` + getSignatureHtml() + `</div>`);
-    }
-
-    if (churchInfo) {
-      const header = `
-        <div style="text-align: center; margin-bottom: 30px; font-family: 'Times New Roman', Times, serif;">
-          ${churchInfo.logo_url ? `<img src="${churchInfo.logo_url}" style="max-width: 100px; max-height: 100px; margin-bottom: 10px; display: block; margin-left: auto; margin-right: auto;" />` : ''}
-          <div style="font-size: 14pt; font-weight: bold; text-transform: uppercase;">${churchInfo.nome}</div>
-          <div style="font-size: 10pt; margin-top: 4px;">CNPJ: ${churchInfo.cnpj || '___'}</div>
-          <div style="font-size: 10pt; margin-top: 2px;">${churchInfo.endereco || '___'}</div>
-          <hr style="margin-top: 15px; border: 0; border-top: 1px solid #000;" />
-        </div>
-      `;
-      htmlParts.unshift(header);
-    }
-    
-    return htmlParts.join('\n');
-  };
-
-  const getSignatureHtml = () => {
-    const sec = signatureData;
-    const secNome = sec?.secretarioNome || '___';
-    const secCargo = sec?.secretarioCargo || 'Secretário(a)';
-    const presNome = sec?.presidenteNome || '___';
-    const presCargo = sec?.presidenteCargo || '1º Dirigente e Pastor';
-    
-    return `
-      <table class="sig-table" width="100%" cellspacing="0" cellpadding="0">
-        <tr>
-          <td class="sig-line">_________________________</td>
-          <td class="sig-line">_________________________</td>
-        </tr>
-        <tr>
-          <td class="sig-info">${secNome}<br/>${secCargo}</td>
-          <td class="sig-info">${presNome}<br/>${presCargo}</td>
-        </tr>
-      </table>`; 
+    return htmlParts.join('');
   };
 
   const baixarWord = () => {
     const content = buildWordHtml();
-    const htmlContent = `<!DOCTYPE html>
-<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
-<head>
-<meta charset="utf-8">
-<meta name="ProgId" content="Word.Document">
-<meta name="Generator" content="Microsoft Word 15">
-<meta name="Originator" content="Microsoft Word 15">
-<!--[if gte mso 9]>
-<xml>
-<w:WordDocument>
-<w:View>Print</w:View>
-<w:Zoom>100</w:Zoom>
-<w:DoNotOptimizeForBrowser/>
-</w:WordDocument>
-</xml>
-<![endif]-->
-<style>
-  @page {
-    size: A4;
-    margin-top: 1cm;
-    margin-bottom: 1.5cm;
-    margin-left: 3cm;
-    margin-right: 3cm;
-  }
-  body {
-    font-family: 'Times New Roman', Times, serif;
-    font-size: 12pt;
-    text-align: justify;
-    color: #000;
-    margin: 0;
-    padding: 0;
-  }
-  p {
-    font-family: 'Times New Roman', Times, serif;
-    font-size: 12pt;
-    text-align: justify;
-    margin-top: 0;
-    margin-bottom: 9pt;
-    line-height: 1.5;
-  }
-  p.titulo {
-    font-weight: bold;
-    margin-left: 5cm;
-    margin-top: 0;
-    margin-bottom: 9pt;
-  }
-  .sig-table {
-    margin-top: 24pt;
-    border-collapse: collapse;
-  }
-  .sig-line {
-    text-align: center;
-    font-family: 'Times New Roman', Times, serif;
-    font-size: 12pt;
-    padding: 0 20pt;
-    width: 50%;
-  }
-  .sig-info {
-    text-align: center;
-    font-family: 'Times New Roman', Times, serif;
-    font-size: 12pt;
-    padding: 0 20pt;
-    width: 50%;
-    line-height: 1.3;
-  }
-</style>
-</head>
-<body>${content}</body>
-</html>`;
-    const blob = new Blob(['\ufeff' + htmlContent], { type: 'application/msword' });
+    const header = `
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head>
+        <meta charset='utf-8'>
+        <title>Ata</title>
+        <style>
+          @page { size: 21cm 29.7cm; margin: 2.5cm; }
+          body { font-family: 'Calibri', 'Arial', sans-serif; font-size: 13pt; text-align: justify; line-height: 1.5; color: black; }
+          p { margin: 0; text-indent: 1.5cm; margin-bottom: 0px; line-height: 1.5; }
+          .titulo { text-align: center; font-weight: bold; text-decoration: underline; text-indent: 0; margin-bottom: 20px; }
+          .assinaturas { margin-top: 50px; display: flex; justify-content: space-between; page-break-inside: avoid; }
+          .assinatura-box { text-align: center; width: 45%; }
+          .linha { border-top: 1px solid black; margin-bottom: 5px; width: 100%; }
+          .assinatura-box p { text-indent: 0; margin: 0; font-size: 11pt; }
+        </style>
+      </head>
+      <body>
+        ${content}
+      </body>
+      </html>
+    `;
+    
+    const blob = new Blob(['\ufeff', header], { type: 'application/msword' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = getNomeArquivoWord();
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("Arquivo Word baixado!");
+    toast.success("Ata baixada (Word)");
     setHouveEdicao(false);
   };
 
   const baixarPDF = () => {
-    const content = buildWordHtml();
-    
-    const div = document.createElement('div');
-    div.innerHTML = content;
-    
-    div.style.padding = '10px 20px';
-    div.style.fontFamily = "'Times New Roman', Times, serif";
-    div.style.fontSize = '12pt';
-    div.style.lineHeight = '1.5';
-    div.style.color = '#000';
-    div.style.textAlign = 'justify';
-    
-    const titulos = div.querySelectorAll('.titulo');
-    titulos.forEach(t => {
-      (t as HTMLElement).style.fontWeight = 'bold';
-      (t as HTMLElement).style.textAlign = 'center';
-      (t as HTMLElement).style.marginBottom = '20px';
-    });
+    const content = document.createElement('div');
+    content.style.padding = '20mm';
+    content.style.fontFamily = "'Calibri', 'Arial', sans-serif";
+    content.style.fontSize = `${fontSize}pt`;
+    content.style.textAlign = 'justify';
+    content.style.lineHeight = '1.5';
+    content.style.color = 'black';
+    content.innerHTML = buildWordHtml();
 
-    const assinaturas = div.querySelectorAll('.assinaturas');
-    assinaturas.forEach(a => {
-      (a as HTMLElement).style.marginTop = '60px';
-    });
-    
+    // Estilo específico para PDF (remover indents em títulos e assinaturas)
+    const style = document.createElement('style');
+    style.innerHTML = `
+      p { margin: 0; text-indent: 1.5cm; }
+      .titulo { text-align: center; font-weight: bold; text-decoration: underline; text-indent: 0; margin-bottom: 20px; }
+      .assinaturas { margin-top: 50px; display: flex; justify-content: space-between; }
+      .assinatura-box { text-align: center; width: 45%; }
+      .linha { border-top: 1px solid black; margin-bottom: 5px; }
+      .assinatura-box p { text-indent: 0; margin: 0; font-size: 11pt; }
+    `;
+    content.appendChild(style);
+
     const opt = {
-      margin:       [20, 15, 20, 15],
-      filename:     getNomeArquivoWord().replace('.doc', '.pdf'),
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2 },
-      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      margin: 0,
+      filename: getNomeArquivoWord().replace('.doc', '.pdf'),
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
-    toast.info("Gerando PDF, aguarde...");
-    html2pdf().from(div).set(opt).outputPdf('blob').then(async (pdfBlob: Blob) => {
-      // Baixar localmente
+    html2pdf().from(content).set(opt).toPdf().get('pdf').save().then(async (pdf: any) => {
+      // PDF gerado com sucesso
+      const pdfBlob = pdf.output('blob');
+      
+      // Link para download manual caso o save() falhe em algum navegador
       const url = URL.createObjectURL(pdfBlob);
       const a = document.createElement('a');
       a.href = url;
@@ -421,6 +354,15 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto, signatureData, ch
 
             <ToolbarButton icon={Undo2} label="Desfazer (Ctrl+Z)" onClick={() => execCmd('undo')} />
             <ToolbarButton icon={Redo2} label="Refazer (Ctrl+Y)" onClick={() => execCmd('redo')} />
+
+            <Separator orientation="vertical" className="h-6 mx-1" />
+
+            <ToolbarButton 
+              icon={Scale} 
+              label="Citar Estatuto Digital" 
+              onClick={() => setIsEstatutoModalOpen(true)} 
+              className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+            />
           </div>
         </TooltipProvider>
       )}
@@ -441,32 +383,35 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto, signatureData, ch
           suppressContentEditableWarning
         />
       ) : (
-        <div className="ata-preview">
+        <div className="ata-preview overflow-y-auto max-h-[600px] p-8 bg-white shadow-inner rounded-lg border text-black">
           {ataTexto ? (
-            ataTexto.split('\n').map((line, i) => {
-              if (line.trim() === '{{ASSINATURAS}}') {
-                return (
-                  <div key={i} className="mt-6 flex justify-around">
-                    <div className="text-center">
-                      <div className="border-t border-black w-48"></div>
-                      <div className="text-sm leading-tight">Secretário(a)</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="border-t border-black w-48"></div>
-                      <div className="text-sm leading-tight">Presidente</div>
-                    </div>
-                  </div>
-                );
-              }
-              return <span key={i}>{line}{'\n'}</span>;
-            })
+            <div 
+              style={{ 
+                fontFamily: "'Calibri', 'Arial', sans-serif", 
+                fontSize: `${fontSize}pt`, 
+                textAlign: 'justify', 
+                color: 'black' 
+              }}
+              dangerouslySetInnerHTML={{ __html: buildWordHtml() }}
+            />
           ) : (
-            <span className="text-muted-foreground italic">
-              Preencha os campos e clique em "Gerar Ata" para ver a pré-visualização aqui.
-            </span>
+            <div className="text-center py-12">
+              <FileText className="w-12 h-12 text-muted-foreground/20 mx-auto mb-4" />
+              <p className="text-muted-foreground italic">
+                Preencha os campos e clique em <span className="font-bold text-primary">"Gerar Ata"</span> para ver a pré-visualização aqui.
+              </p>
+            </div>
           )}
         </div>
       )}
+
+      <EstatutoSearchModal
+        isOpen={isEstatutoModalOpen}
+        onClose={() => setIsEstatutoModalOpen(false)}
+        estatutoTexto={churchInfo?.estatuto_texto}
+        regimentoTexto={churchInfo?.regimento_texto}
+        onSelect={(text) => execCmd('insertText', ` ${text} `)}
+      />
     </div>
   );
 }
