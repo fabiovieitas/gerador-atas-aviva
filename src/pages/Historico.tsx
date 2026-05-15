@@ -274,22 +274,29 @@ const gerarLivroAtas = async () => {
     if (churchFilter !== "all") {
       result = result.filter((a) => a.church_id === churchFilter);
     }
+    
     const termo = busca.trim().toLowerCase();
-    if (termo) {
-      result = result.filter((a) => {
-        const dataFormatada = new Date(a.created_at).toLocaleDateString("pt-BR");
-        const conteudoDaAta = (a.conteudo || "").toLowerCase();
-        
-        return (
-          a.titulo.toLowerCase().includes(termo) ||
-          (a.church_nome || "").toLowerCase().includes(termo) ||
-          (a.autor_nome || "").toLowerCase().includes(termo) ||
-          dataFormatada.includes(termo) ||
-          conteudoDaAta.includes(termo)
-        );
-      });
-    }
-    return result;
+    if (!termo) return result;
+
+    return result.filter((a) => {
+      const dataFormatada = new Date(a.created_at).toLocaleDateString("pt-BR");
+      const conteudo = (a.conteudo || "").toLowerCase();
+      const titulo = a.titulo.toLowerCase();
+      const church = (a.church_nome || "").toLowerCase();
+      const autor = (a.autor_nome || "").toLowerCase();
+      
+      // Procura em TUDO: título, conteúdo, igreja, autor, data e até nos membros presentes (no JSON)
+      const membros = (a.dados_json?.membrosPresentes || []).join(", ").toLowerCase();
+
+      return (
+        titulo.includes(termo) ||
+        conteudo.includes(termo) ||
+        church.includes(termo) ||
+        autor.includes(termo) ||
+        dataFormatada.includes(termo) ||
+        membros.includes(termo)
+      );
+    });
   }, [atas, busca, churchFilter]);
 
   return (

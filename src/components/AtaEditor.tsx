@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Copy, Download, Pencil, Eye, RotateCcw, Bold, Italic, Underline as UnderlineIcon, AlignLeft, AlignCenter, AlignJustify, Minus, Plus, Undo2, Redo2, FileText, FileDown, Scale } from "lucide-react";
+import { Copy, Download, Pencil, Eye, RotateCcw, Bold, Italic, Underline as UnderlineIcon, AlignLeft, AlignCenter, AlignJustify, Minus, Plus, Undo2, Redo2, FileText, FileDown, Scale, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Separator } from "@/components/ui/separator";
@@ -23,6 +23,7 @@ interface ChurchInfo {
   logo_url: string;
   estatuto_texto?: string;
   regimento_texto?: string;
+  gemini_api_key?: string;
 }
 
 interface Props {
@@ -39,6 +40,7 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto, signatureData, ch
   const [fontSize, setFontSize] = useState(13);
   const [houveEdicao, setHouveEdicao] = useState(false);
   const [isEstatutoModalOpen, setIsEstatutoModalOpen] = useState(false);
+  const [isAiLoading, setIsAiLoading] = useState(false);
 
   // Sync content into the contentEditable div when switching to edit mode or when ataTexto changes externally
   useEffect(() => {
@@ -265,6 +267,65 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto, signatureData, ch
     }
   };
 
+  const handleAISuggest = async () => {
+    if (!churchInfo?.gemini_api_key) {
+      toast.error("Chave do Gemini não configurada! Vá em Configurações > Automação.");
+      return;
+    }
+
+    const selection = window.getSelection()?.toString();
+    const textoParaMelhorar = selection || ataTexto;
+
+    if (!textoParaMelhorar || textoParaMelhorar.length < 10) {
+      toast.error("Escreva ou selecione alguns tópicos para a IA formatar.");
+      return;
+    }
+
+    setIsAiLoading(true);
+    toast.info("Gemini está redigindo seu texto...");
+
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${churchInfo.gemini_api_key}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: `Você é um secretário de igreja experiente e formal. 
+              Escreva um parágrafo de ata de assembleia baseado nos seguintes tópicos: "${textoParaMelhorar}". 
+              Use uma linguagem jurídica e eclesiástica formal (ex: 'submeteu-se à apreciação', 'aprovado por unanimidade', 'lavrou-se a presente'). 
+              Se houver nomes de pessoas, mantenha-os. Não use saudações, apenas o texto corrido do parágrafo da ata.`
+            }]
+          }]
+        })
+      });
+
+      const data = await response.json();
+      const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (aiText) {
+        if (selection) {
+          execCmd('insertText', aiText);
+        } else {
+          // Se não houver seleção, substitui ou adiciona ao fim
+          const novoTexto = ataTexto + "\n\n" + aiText;
+          onUpdate(novoTexto);
+          if (editorRef.current) {
+            editorRef.current.innerText = novoTexto;
+          }
+        }
+        toast.success("Texto formatado pela IA com sucesso!");
+      } else {
+        throw new Error("Resposta da IA vazia");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao conectar com o Gemini. Verifique sua chave.");
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
   const changeFontSize = (delta: number) => {
     const newSize = Math.max(8, Math.min(24, fontSize + delta));
     setFontSize(newSize);
@@ -363,6 +424,20 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto, signatureData, ch
               onClick={() => setIsEstatutoModalOpen(true)} 
               className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
             />
+
+            <Separator orientation="vertical" className="h-6 mx-1" />
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleAISuggest}
+              disabled={isAiLoading}
+              className="gap-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50 h-8 px-2"
+            >
+              {isAiLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+              <span className="text-[10px] font-bold uppercase tracking-tight">Redigir com IA</span>
+            </Button>
           </div>
         </TooltipProvider>
       )}

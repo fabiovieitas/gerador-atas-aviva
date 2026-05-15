@@ -43,7 +43,8 @@ export function useAtaStore() {
     estado: string, 
     logo_url?: string,
     estatuto_texto?: string,
-    regimento_texto?: string
+    regimento_texto?: string,
+    gemini_api_key?: string
   } | null>(null);
   const [churchError, setChurchError] = useState<string | null>(null);
   const [currentAtaId, setCurrentAtaId] = useState<string | number | null>(null);
@@ -95,7 +96,7 @@ export function useAtaStore() {
         if (idToFetch && idToFetch !== 'all') {
           const { data: churchData, error: churchErr } = await supabase
             .from('churches')
-            .select('nome, cidade, estado, logo_url, estatuto_texto, regimento_texto')
+            .select('nome, cidade, estado, logo_url, estatuto_texto, regimento_texto, gemini_api_key')
             .eq('id', idToFetch)
             .maybeSingle();
 

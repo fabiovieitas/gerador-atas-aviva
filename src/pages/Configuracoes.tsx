@@ -63,6 +63,7 @@ export function ConfiguracoesPage({ store }: Props) {
   // Estatuto state
   const [estatutoTexto, setEstatutoTexto] = useState(store.churchInfo?.estatuto_texto || "");
   const [regimentoTexto, setRegimentoTexto] = useState(store.churchInfo?.regimento_texto || "");
+  const [geminiKey, setGeminiKey] = useState(store.churchInfo?.gemini_api_key || "");
   const [savingEstatuto, setSavingEstatuto] = useState(false);
 
   useEffect(() => {
@@ -83,6 +84,10 @@ export function ConfiguracoesPage({ store }: Props) {
           setEstatutoTexto(data.estatuto_texto || "");
           setRegimentoTexto(data.regimento_texto || "");
         }
+      }
+      
+      if (store.churchInfo?.gemini_api_key) {
+        setGeminiKey(store.churchInfo.gemini_api_key);
       }
     };
     loadGlobalText();
@@ -220,6 +225,24 @@ export function ConfiguracoesPage({ store }: Props) {
     }
   };
 
+  const handleSaveGemini = async () => {
+    if (!profile?.church_id) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('churches')
+        .update({ gemini_api_key: geminiKey })
+        .eq('id', profile.church_id);
+      
+      if (error) throw error;
+      toast.success("Chave do Gemini salva!");
+    } catch (error: any) {
+      toast.error("Erro ao salvar chave: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div>
@@ -342,6 +365,34 @@ export function ConfiguracoesPage({ store }: Props) {
                   value={store.defaults.tesoureira || ''} 
                   onChange={(e) => store.saveDefault('tesoureira', e.target.value)}
                 />
+              </div>
+              <div className="sm:col-span-2 pt-4 border-t space-y-4">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-purple-100 rounded-lg text-purple-600">
+                    <Key className="w-4 h-4" />
+                  </div>
+                  <h4 className="font-bold text-purple-900">Inteligência Artificial (Gemini)</h4>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="gemini-key">Sua Chave de API do Gemini</Label>
+                  <div className="flex gap-2">
+                    <Input 
+                      id="gemini-key" 
+                      type="password"
+                      placeholder="Cole aqui a sua chave do Google Gemini" 
+                      value={geminiKey} 
+                      onChange={(e) => setGeminiKey(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button type="button" onClick={handleSaveGemini} disabled={loading} variant="secondary">
+                      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Salvar Chave"}
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    A chave é necessária para usar o assistente de redação inteligente. 
+                    <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-primary hover:underline ml-1">Clique aqui para gerar uma grátis.</a>
+                  </p>
+                </div>
               </div>
               <div className="sm:col-span-2 flex justify-end pt-4">
                 <Button type="submit" disabled={loading}>
