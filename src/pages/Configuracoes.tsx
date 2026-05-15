@@ -378,8 +378,9 @@ export function ConfiguracoesPage({ store }: Props) {
                   <div className="flex gap-2">
                     <Input 
                       id="gemini-key" 
-                      type="password"
-                      placeholder="Cole aqui a sua chave do Google Gemini" 
+                      type="text"
+                      autoComplete="off"
+                      placeholder="Cole aqui a sua chave do Google Gemini (começa com AIza...)" 
                       value={geminiKey} 
                       onChange={(e) => setGeminiKey(e.target.value)}
                       className="flex-1"
