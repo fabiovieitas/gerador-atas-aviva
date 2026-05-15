@@ -302,6 +302,11 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto, signatureData, ch
       });
 
       const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error.message || "Erro desconhecido no Google");
+      }
+
       const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
       if (aiText) {
@@ -319,9 +324,9 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto, signatureData, ch
       } else {
         throw new Error("Resposta da IA vazia");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error("Erro ao conectar com o Gemini. Verifique sua chave.");
+      toast.error(`Erro: ${err.message || "Falha na conexão"}`);
     } finally {
       setIsAiLoading(false);
     }
