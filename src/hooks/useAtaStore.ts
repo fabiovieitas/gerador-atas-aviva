@@ -125,7 +125,7 @@ export function useAtaStore() {
           // Global Mode Fallback
           const { data: globalLegal } = await supabase
             .from('churches')
-            .select('nome, estatuto_texto, regimento_texto')
+            .select('nome, estatuto_texto, regimento_texto, gemini_api_key')
             .not('estatuto_texto', 'is', null)
             .limit(1)
             .maybeSingle();
@@ -135,7 +135,8 @@ export function useAtaStore() {
             cidade: "",
             estado: "",
             estatuto_texto: globalLegal?.estatuto_texto || "",
-            regimento_texto: globalLegal?.regimento_texto || ""
+            regimento_texto: globalLegal?.regimento_texto || "",
+            gemini_api_key: globalLegal?.gemini_api_key || ""
           });
         }
 
