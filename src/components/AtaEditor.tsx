@@ -269,7 +269,8 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto, signatureData, ch
 
   const handleAISuggest = async () => {
     if (!churchInfo?.gemini_api_key) {
-      toast.error("Chave do Gemini não configurada! Vá em Configurações > Automação.");
+      const infoStr = churchInfo ? `Igreja: ${churchInfo.nome}` : "Sem igreja selecionada";
+      toast.error(`IA não configurada (${infoStr}). Tente selecionar a igreja no menu lateral.`);
       return;
     }
 
