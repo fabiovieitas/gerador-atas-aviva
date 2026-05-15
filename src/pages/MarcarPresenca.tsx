@@ -96,12 +96,15 @@ export function MarcarPresencaPage() {
       if (membrosFromSession.length === 0 && sessionData.church_id) {
         const { data: membrosDb } = await supabase
           .from("membros")
-          .select("nome, cargo")
+          .select("nome, cargo, ativo")
           .eq("church_id", sessionData.church_id);
         
         if (membrosDb) {
-          membrosFromSession = membrosDb as Membro[];
+          membrosFromSession = (membrosDb as any[]).filter(m => m.ativo !== false);
         }
+      } else {
+        // Se vier do JSON, também garantimos o filtro (caso o JSON seja antigo)
+        membrosFromSession = membrosFromSession.filter((m: any) => m.ativo !== false);
       }
 
       setMembros([...membrosFromSession].sort((a, b) => a.nome.localeCompare(b.nome)));
