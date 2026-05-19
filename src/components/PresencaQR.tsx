@@ -1,9 +1,34 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { QRCodeSVG } from "qrcode.react";
-import { QrCode, Copy, Download, Loader2, Wifi, WifiOff, X } from "lucide-react";
+import { QrCode, Copy, Download, Loader2, Wifi, WifiOff, X, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+
+// Utilitário para garantir que valores vindos do Postgres como array de texto sejam sempre tratados como array de strings,
+// evitando quebras de tipos se vier formato raw de string (ex: "{}")
+export const safeParseArray = (val: any): string[] => {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string') {
+    if (val.startsWith('{') && val.endsWith('}')) {
+      const content = val.slice(1, -1).trim();
+      if (!content) return [];
+      return content.split(',').map(item => {
+        let clean = item.trim();
+        if (clean.startsWith('"') && clean.endsWith('"')) {
+          clean = clean.slice(1, -1);
+        }
+        return clean;
+      });
+    }
+    try {
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {}
+  }
+  return [];
+};
 
 interface Props {
   membros: { nome: string; cargo: string }[];
@@ -170,14 +195,14 @@ export function PresencaQR({ membros, membrosPresentes, churchId, churchNome, on
           </div>
 
           {/* Fotos de assinaturas enviadas pelo celular em tempo real */}
-          {fotosAssinaturaUrls.length > 0 && (
+          {safeParseArray(fotosAssinaturaUrls).length > 0 && (
             <div className="pt-2 border-t border-dashed border-muted">
               <p className="text-[11px] font-bold text-muted-foreground mb-1.5 flex items-center gap-1.5">
                 <ImageIcon className="w-3.5 h-3.5 text-primary" /> 
-                Folhas de Assinatura ({fotosAssinaturaUrls.length}):
+                Folhas de Assinatura ({safeParseArray(fotosAssinaturaUrls).length}):
               </p>
               <div className="flex gap-2 overflow-x-auto pb-1 max-w-[280px]">
-                {fotosAssinaturaUrls.map((url, i) => (
+                {safeParseArray(fotosAssinaturaUrls).map((url, i) => (
                   <a 
                     key={i} 
                     href={url} 

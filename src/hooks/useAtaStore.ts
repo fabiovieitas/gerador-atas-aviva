@@ -11,6 +11,15 @@ const emptyMes = (): DadosFinanceiros => ({
   caixaInicial: '', entradas: '', saidas: '', caixaFinal: '',
 });
 
+const cleanUrls = (val: any): string[] => {
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string' && val.startsWith('{') && val.endsWith('}')) {
+    const inner = val.slice(1, -1).trim();
+    return inner ? inner.split(',').map(s => s.trim().replace(/^"|"$/g, '')) : [];
+  }
+  return [];
+};
+
 const initialFormData: AtaFormData = {
   dataReuniao: '', tipoAssembleia: 'Ordinária',
   horaInicio: '', horaTermino: '',
@@ -194,10 +203,10 @@ export function useAtaStore() {
       .eq('id', presenceSessionId)
       .single()
       .then(({ data }) => {
-        if (data?.fotos_assinatura_urls) {
+        if (data) {
           setFormData(prev => ({
             ...prev,
-            fotosAssinaturaUrls: data.fotos_assinatura_urls || []
+            fotosAssinaturaUrls: cleanUrls(data.fotos_assinatura_urls)
           }));
         }
       });
@@ -240,10 +249,10 @@ export function useAtaStore() {
         filter: `id=eq.${presenceSessionId}`,
       }, (payload) => {
         const updatedSession = payload.new as any;
-        if (updatedSession && updatedSession.fotos_assinatura_urls) {
+        if (updatedSession) {
           setFormData(prev => ({
             ...prev,
-            fotosAssinaturaUrls: updatedSession.fotos_assinatura_urls || []
+            fotosAssinaturaUrls: cleanUrls(updatedSession.fotos_assinatura_urls)
           }));
         }
       })

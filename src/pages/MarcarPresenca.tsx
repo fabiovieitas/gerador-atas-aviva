@@ -5,6 +5,31 @@ import { CheckCircle2, Circle, Search, Loader2, XCircle, Users, CheckCheck, X, A
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
+// Utilitário para garantir que valores vindos do Postgres como array de texto sejam sempre tratados como array de strings,
+// evitando quebras de tipos se vier formato raw de string (ex: "{}")
+export const safeParseArray = (val: any): string[] => {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string') {
+    if (val.startsWith('{') && val.endsWith('}')) {
+      const content = val.slice(1, -1).trim();
+      if (!content) return [];
+      return content.split(',').map(item => {
+        let clean = item.trim();
+        if (clean.startsWith('"') && clean.endsWith('"')) {
+          clean = clean.slice(1, -1);
+        }
+        return clean;
+      });
+    }
+    try {
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {}
+  }
+  return [];
+};
+
 interface Session {
   id: string;
   titulo: string;
@@ -75,7 +100,7 @@ export function MarcarPresencaPage() {
         if (updatedSession) {
           setSession(prev => prev ? {
             ...prev,
-            fotos_assinatura_urls: updatedSession.fotos_assinatura_urls || []
+            fotos_assinatura_urls: safeParseArray(updatedSession.fotos_assinatura_urls)
           } : null);
         }
       })
@@ -114,7 +139,7 @@ export function MarcarPresencaPage() {
         church_id: sessionData.church_id,
         church_nome: (sessionData as any).church_nome || "",
         church_logo: churchData?.logo_url,
-        fotos_assinatura_urls: (sessionData as any).fotos_assinatura_urls || [],
+        fotos_assinatura_urls: safeParseArray(sessionData.fotos_assinatura_urls),
       });
 
       let membrosFromSession = ((sessionData as any).membros_json as Membro[]) || [];
@@ -154,7 +179,7 @@ export function MarcarPresencaPage() {
     if (!files || files.length === 0 || !session) return;
 
     setUploading(true);
-    const newUrls: string[] = [...(session.fotos_assinatura_urls || [])];
+    const newUrls: string[] = [...safeParseArray(session.fotos_assinatura_urls)];
 
     try {
       for (const file of Array.from(files)) {
@@ -197,7 +222,7 @@ export function MarcarPresencaPage() {
     const confirmRemove = window.confirm("Deseja remover esta foto da folha de assinatura?");
     if (!confirmRemove) return;
 
-    const filtered = (session.fotos_assinatura_urls || []).filter(url => url !== urlToRemove);
+    const filtered = safeParseArray(session.fotos_assinatura_urls).filter(url => url !== urlToRemove);
 
     try {
       const { error: updateError } = await supabase
@@ -355,9 +380,9 @@ export function MarcarPresencaPage() {
           </p>
 
           {/* Galeria de Fotos */}
-          {session?.fotos_assinatura_urls && session.fotos_assinatura_urls.length > 0 && (
+          {session && safeParseArray(session.fotos_assinatura_urls).length > 0 && (
             <div className="grid grid-cols-3 gap-2 w-full pt-1">
-              {session.fotos_assinatura_urls.map((url, index) => (
+              {safeParseArray(session.fotos_assinatura_urls).map((url, index) => (
                 <div key={index} className="relative aspect-square rounded-xl overflow-hidden border bg-slate-50 group shadow-sm animate-in zoom-in duration-200">
                   <img 
                     src={url} 

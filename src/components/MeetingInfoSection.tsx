@@ -11,6 +11,31 @@ import { Textarea } from "@/components/ui/textarea";
 import { MemberMentionInput } from "@/components/MemberMentionInput";
 import type { AtaFormData, Membro } from "@/types/ata";
 
+// Utilitário para garantir que valores vindos do Postgres como array de texto sejam sempre tratados como array de strings,
+// evitando quebras de tipos se vier formato raw de string (ex: "{}")
+export const safeParseArray = (val: any): string[] => {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string') {
+    if (val.startsWith('{') && val.endsWith('}')) {
+      const content = val.slice(1, -1).trim();
+      if (!content) return [];
+      return content.split(',').map(item => {
+        let clean = item.trim();
+        if (clean.startsWith('"') && clean.endsWith('"')) {
+          clean = clean.slice(1, -1);
+        }
+        return clean;
+      });
+    }
+    try {
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {}
+  }
+  return [];
+};
+
 interface Props {
   data: AtaFormData;
   onUpdate: <K extends keyof AtaFormData>(field: K, value: AtaFormData[K]) => void;
@@ -28,7 +53,7 @@ export function MeetingInfoSection({ data, onUpdate, onSaveDefault, membros, mem
     if (!files || files.length === 0) return;
 
     setUploading(true);
-    const newUrls: string[] = [...(data.fotosAssinaturaUrls || [])];
+    const newUrls: string[] = [...safeParseArray(data.fotosAssinaturaUrls)];
 
     try {
       for (const file of Array.from(files)) {
@@ -59,7 +84,7 @@ export function MeetingInfoSection({ data, onUpdate, onSaveDefault, membros, mem
   };
 
   const removePhoto = (urlToRemove: string) => {
-    const filtered = (data.fotosAssinaturaUrls || []).filter(url => url !== urlToRemove);
+    const filtered = safeParseArray(data.fotosAssinaturaUrls).filter(url => url !== urlToRemove);
     onUpdate('fotosAssinaturaUrls', filtered);
   };
 
@@ -75,9 +100,9 @@ export function MeetingInfoSection({ data, onUpdate, onSaveDefault, membros, mem
         </div>
         
         {/* Galeria de Fotos */}
-        {data.fotosAssinaturaUrls && data.fotosAssinaturaUrls.length > 0 && (
+        {data.fotosAssinaturaUrls && safeParseArray(data.fotosAssinaturaUrls).length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 w-full">
-            {data.fotosAssinaturaUrls.map((url, index) => (
+            {safeParseArray(data.fotosAssinaturaUrls).map((url, index) => (
               <div key={index} className="relative aspect-square rounded-lg overflow-hidden border bg-background group shadow-sm">
                 <img src={url} alt={`Folha ${index + 1}`} className="w-full h-full object-cover" />
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
