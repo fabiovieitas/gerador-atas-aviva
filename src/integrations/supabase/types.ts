@@ -24,6 +24,7 @@ export type Database = {
           is_active: boolean | null
           created_at: string
           church_nome: string | null
+          fotos_assinatura_urls: string[] | null
         }
         Insert: {
           id?: string
@@ -34,6 +35,7 @@ export type Database = {
           is_active?: boolean | null
           created_at?: string
           church_nome?: string | null
+          fotos_assinatura_urls?: string[] | null
         }
         Update: {
           id?: string
@@ -44,6 +46,7 @@ export type Database = {
           is_active?: boolean | null
           created_at?: string
           church_nome?: string | null
+          fotos_assinatura_urls?: string[] | null
         }
         Relationships: [
           {

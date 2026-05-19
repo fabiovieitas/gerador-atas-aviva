@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckCircle2, Circle, Search, Loader2, XCircle, Users, CheckCheck, X, AlertCircle } from "lucide-react";
+import { CheckCircle2, Circle, Search, Loader2, XCircle, Users, CheckCheck, X, AlertCircle, Image as ImageIcon, Trash2, Camera } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
@@ -12,6 +12,7 @@ interface Session {
   church_id: string;
   church_nome: string;
   church_logo?: string;
+  fotos_assinatura_urls?: string[];
 }
 
 interface Membro {
@@ -30,13 +31,15 @@ export function MarcarPresencaPage() {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [filterStatus, setFilterStatus] = useState<"todos" | "presentes" | "ausentes">("todos");
   const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) return;
     loadSession();
   }, [token]);
 
-  // Real-time sync
+  // Real-time sync for attendance
   useEffect(() => {
     if (!session?.id) return;
     const channel = supabase
@@ -57,12 +60,35 @@ export function MarcarPresencaPage() {
     return () => { supabase.removeChannel(channel); };
   }, [session?.id]);
 
+  // Real-time sync for session details (signatures)
+  useEffect(() => {
+    if (!session?.id) return;
+    const channel = supabase
+      .channel(`session-details-${session.id}`)
+      .on("postgres_changes", {
+        event: "UPDATE",
+        schema: "public",
+        table: "assembly_sessions",
+        filter: `id=eq.${session.id}`,
+      }, (payload) => {
+        const updatedSession = payload.new as any;
+        if (updatedSession) {
+          setSession(prev => prev ? {
+            ...prev,
+            fotos_assinatura_urls: updatedSession.fotos_assinatura_urls || []
+          } : null);
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [session?.id]);
+
   const loadSession = async () => {
     setLoading(true);
     try {
       const { data: sessionData, error: sessionErr } = await supabase
         .from("assembly_sessions")
-        .select("id, titulo, tipo, church_id, is_active, membros_json, church_nome")
+        .select("id, titulo, tipo, church_id, is_active, membros_json, church_nome, fotos_assinatura_urls")
         .eq("token", token)
         .single();
 
@@ -88,6 +114,7 @@ export function MarcarPresencaPage() {
         church_id: sessionData.church_id,
         church_nome: (sessionData as any).church_nome || "",
         church_logo: churchData?.logo_url,
+        fotos_assinatura_urls: (sessionData as any).fotos_assinatura_urls || [],
       });
 
       let membrosFromSession = ((sessionData as any).membros_json as Membro[]) || [];
@@ -119,6 +146,71 @@ export function MarcarPresencaPage() {
       setError("Erro ao carregar sessão.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSignatureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !session) return;
+
+    setUploading(true);
+    const newUrls: string[] = [...(session.fotos_assinatura_urls || [])];
+
+    try {
+      for (const file of Array.from(files)) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
+        const filePath = `assinaturas/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('assinaturas_atas')
+          .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('assinaturas_atas')
+          .getPublicUrl(filePath);
+        
+        newUrls.push(publicUrl);
+      }
+
+      // Atualiza no banco de dados na tabela assembly_sessions
+      const { error: updateError } = await supabase
+        .from('assembly_sessions')
+        .update({ fotos_assinatura_urls: newUrls })
+        .eq('id', session.id);
+
+      if (updateError) throw updateError;
+
+      setSession((prev) => prev ? { ...prev, fotos_assinatura_urls: newUrls } : null);
+      toast.success(`${files.length} foto(s) da folha de assinatura enviada(s)!`);
+    } catch (error: any) {
+      toast.error("Erro ao enviar foto: " + error.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRemoveSignature = async (urlToRemove: string) => {
+    if (!session) return;
+    const confirmRemove = window.confirm("Deseja remover esta foto da folha de assinatura?");
+    if (!confirmRemove) return;
+
+    const filtered = (session.fotos_assinatura_urls || []).filter(url => url !== urlToRemove);
+
+    try {
+      const { error: updateError } = await supabase
+        .from('assembly_sessions')
+        .update({ fotos_assinatura_urls: filtered })
+        .eq('id', session.id);
+
+      if (updateError) throw updateError;
+
+      setSession((prev) => prev ? { ...prev, fotos_assinatura_urls: filtered } : null);
+      toast.success("Foto da folha de assinatura removida!");
+    } catch (error: any) {
+      toast.error("Erro ao remover foto: " + error.message);
     }
   };
 
@@ -249,6 +341,73 @@ export function MarcarPresencaPage() {
         {/* Instruction */}
         <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-2.5 text-xs text-indigo-700 text-center">
           Toque para <strong>marcar ✅</strong> ou <strong>desmarcar ❌</strong> cada membro
+        </div>
+
+        {/* Folha de Assinatura física upload */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 space-y-3">
+          <div className="flex items-center gap-2 text-slate-800">
+            <ImageIcon className="w-5 h-5 text-indigo-500" />
+            <h3 className="font-bold text-sm text-indigo-950">Folha de Assinaturas</h3>
+          </div>
+          
+          <p className="text-xs text-slate-500 leading-relaxed">
+            Se a assinatura for física em papel, envie foto(s) da folha de presença. Elas aparecem no painel do secretário em tempo real! 📸
+          </p>
+
+          {/* Galeria de Fotos */}
+          {session?.fotos_assinatura_urls && session.fotos_assinatura_urls.length > 0 && (
+            <div className="grid grid-cols-3 gap-2 w-full pt-1">
+              {session.fotos_assinatura_urls.map((url, index) => (
+                <div key={index} className="relative aspect-square rounded-xl overflow-hidden border bg-slate-50 group shadow-sm animate-in zoom-in duration-200">
+                  <img 
+                    src={url} 
+                    alt={`Folha ${index + 1}`} 
+                    className="w-full h-full object-cover cursor-pointer active:scale-95 transition-transform" 
+                    onClick={() => setSelectedPhoto(url)}
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => handleRemoveSignature(url)} 
+                    className="absolute top-1 right-1 bg-red-500/90 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-20"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                  <div className="absolute bottom-1 left-1 bg-black/60 text-white text-[9px] px-1.5 py-0.5 rounded-full font-medium">
+                    #{index + 1}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Botão de Upload */}
+          <div className="relative pt-1">
+            <input 
+              type="file" 
+              accept="image/*" 
+              multiple
+              onChange={handleSignatureUpload} 
+              disabled={uploading} 
+              className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10" 
+            />
+            <div className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed text-sm font-semibold transition-all ${
+              uploading 
+                ? "bg-slate-50 border-slate-200 text-slate-400" 
+                : "bg-indigo-50/70 hover:bg-indigo-50 border-indigo-200 text-indigo-600 active:scale-[0.98]"
+            }`}>
+              {uploading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
+                  <span>Enviando foto...</span>
+                </>
+              ) : (
+                <>
+                  <Camera className="w-4 h-4" />
+                  <span>Tirar Foto / Enviar Folha</span>
+                </>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Search */}
@@ -383,6 +542,33 @@ export function MarcarPresencaPage() {
           As presenças atualizam na ata em tempo real ✝️
         </p>
       </div>
+
+      {/* Lightbox / Fullscreen Image Preview */}
+      {selectedPhoto && (
+        <div 
+          className="fixed inset-0 bg-black/95 z-50 flex flex-col justify-center items-center p-4 animate-in fade-in duration-200"
+          onClick={() => setSelectedPhoto(null)}
+        >
+          <button 
+            type="button" 
+            onClick={() => setSelectedPhoto(null)} 
+            className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white rounded-full p-2.5 backdrop-blur-sm transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          
+          <img 
+            src={selectedPhoto} 
+            alt="Folha de Assinatura Ampliada" 
+            className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl" 
+            onClick={(e) => e.stopPropagation()}
+          />
+          
+          <p className="text-white/60 text-xs mt-4 text-center">
+            Toque fora da imagem para fechar
+          </p>
+        </div>
+      )}
     </div>
   );
 }

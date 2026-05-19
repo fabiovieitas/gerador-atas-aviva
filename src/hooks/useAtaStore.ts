@@ -187,7 +187,23 @@ export function useAtaStore() {
   useEffect(() => {
     if (!presenceSessionId) return;
 
-    const channel = supabase
+    // Buscar fotos de assinaturas iniciais da sessão
+    supabase
+      .from('assembly_sessions')
+      .select('fotos_assinatura_urls')
+      .eq('id', presenceSessionId)
+      .single()
+      .then(({ data }) => {
+        if (data?.fotos_assinatura_urls) {
+          setFormData(prev => ({
+            ...prev,
+            fotosAssinaturaUrls: data.fotos_assinatura_urls || []
+          }));
+        }
+      });
+
+    // Canal para marcar presença
+    const presenceChannel = supabase
       .channel(`global-presenca-${presenceSessionId}`)
       .on("postgres_changes", {
         event: "*",
@@ -202,7 +218,6 @@ export function useAtaStore() {
         }
 
         // Se for uma saída (DELETE), recarregamos sempre para garantir sincronia total
-        // O Supabase às vezes não envia o session_id no DELETE, por isso o fetch é mais seguro aqui
         if (payload.eventType === 'DELETE') {
           supabase
             .from("assembly_attendance")
@@ -215,8 +230,28 @@ export function useAtaStore() {
       })
       .subscribe();
 
+    // Canal para atualizações da sessão (ex: envio de fotos de assinaturas por celular)
+    const sessionChannel = supabase
+      .channel(`global-sessao-${presenceSessionId}`)
+      .on("postgres_changes", {
+        event: "UPDATE",
+        schema: "public",
+        table: "assembly_sessions",
+        filter: `id=eq.${presenceSessionId}`,
+      }, (payload) => {
+        const updatedSession = payload.new as any;
+        if (updatedSession && updatedSession.fotos_assinatura_urls) {
+          setFormData(prev => ({
+            ...prev,
+            fotosAssinaturaUrls: updatedSession.fotos_assinatura_urls || []
+          }));
+        }
+      })
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(presenceChannel);
+      supabase.removeChannel(sessionChannel);
     };
   }, [presenceSessionId]);
 

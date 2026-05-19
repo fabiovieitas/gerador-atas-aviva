@@ -270,6 +270,7 @@ export function NovaAtaPage({ store }: Props) {
               onSync={store.setMembrosPresentes}
               sessionId={store.presenceSessionId}
               setSessionId={store.setPresenceSessionId}
+              fotosAssinaturaUrls={store.formData.fotosAssinaturaUrls || []}
             />
 
             {store.membros.length > 0 && (

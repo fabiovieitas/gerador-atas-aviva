@@ -13,9 +13,10 @@ interface Props {
   onSync: (presentes: string[]) => void;
   sessionId: string | null;
   setSessionId: (id: string | null) => void;
+  fotosAssinaturaUrls?: string[];
 }
 
-export function PresencaQR({ membros, membrosPresentes, churchId, churchNome, onSync, sessionId, setSessionId }: Props) {
+export function PresencaQR({ membros, membrosPresentes, churchId, churchNome, onSync, sessionId, setSessionId, fotosAssinaturaUrls = [] }: Props) {
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [open, setOpen] = useState(false);
@@ -167,6 +168,33 @@ export function PresencaQR({ membros, membrosPresentes, churchId, churchNome, on
               </span>
             ))}
           </div>
+
+          {/* Fotos de assinaturas enviadas pelo celular em tempo real */}
+          {fotosAssinaturaUrls.length > 0 && (
+            <div className="pt-2 border-t border-dashed border-muted">
+              <p className="text-[11px] font-bold text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                <ImageIcon className="w-3.5 h-3.5 text-primary" /> 
+                Folhas de Assinatura ({fotosAssinaturaUrls.length}):
+              </p>
+              <div className="flex gap-2 overflow-x-auto pb-1 max-w-[280px]">
+                {fotosAssinaturaUrls.map((url, i) => (
+                  <a 
+                    key={i} 
+                    href={url} 
+                    target="_blank" 
+                    rel="noreferrer" 
+                    title="Clique para abrir imagem original"
+                    className="relative w-12 h-12 rounded-lg overflow-hidden border border-border shrink-0 hover:opacity-85 transition-opacity shadow-sm bg-slate-50 flex items-center justify-center group"
+                  >
+                    <img src={url} alt={`Folha ${i + 1}`} className="w-full h-full object-cover" />
+                    <div className="absolute bottom-0 right-0 bg-black/60 text-white text-[8px] px-1 rounded-tl-md">
+                      #{i + 1}
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="flex gap-2 pt-1">
             <Button type="button" variant="outline" size="sm" onClick={handleCopyLink} disabled={!sessionToken} className="gap-1.5 text-xs">
