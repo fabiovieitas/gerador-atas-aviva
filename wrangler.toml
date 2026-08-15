@@ -1,6 +1,8 @@
 name = "gerador-atas-aviva"
-pages_build_output_dir = "dist"
 compatibility_date = "2024-08-15"
+
+[assets]
+directory = "./dist"
 
 [vars]
 NODE_ENV = "production"
