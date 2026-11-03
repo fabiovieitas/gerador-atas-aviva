@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useAtaStore } from "@/hooks/useAtaStore";
-import { CheckCircle2, Circle, Clock, User, Calendar, Trash2, Filter, Search, Loader2, AlertCircle } from "lucide-react";
+import { CheckCircle2, Circle, Clock, User, Calendar, Trash2, Filter, Search, Loader2, AlertCircle, Plus, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
 interface Task {
@@ -30,6 +31,57 @@ export function PendenciasPage({ store }: Props) {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pendente' | 'concluido'>('pendente');
   const [search, setSearch] = useState("");
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [newTitulo, setNewTitulo] = useState("");
+  const [newDesc, setNewDesc] = useState("");
+  const [newResp, setNewResp] = useState("");
+  const [newPrazo, setNewPrazo] = useState("");
+  const [savingTask, setSavingTask] = useState(false);
+
+  const handleWhatsAppReminder = (task: Task) => {
+    const dataFormatada = task.data_limite ? new Date(task.data_limite).toLocaleDateString("pt-BR") : "A combinar";
+    const msg = `Olá ${task.responsavel || "Irmão(ã)"}! 🏛️ Lembrete da deliberação da Assembleia da Igreja AVIVA:\n\n📌 *Tarefa:* ${task.titulo}\n📅 *Prazo:* ${dataFormatada}\n\nPor favor, nos informe assim que a tarefa for realizada. Deus abençoe!`;
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
+  };
+
+  const handleCreateTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTitulo.trim()) {
+      toast.error("Informe o título da tarefa.");
+      return;
+    }
+    const targetChurchId = store.selectedChurchId || profile?.church_id;
+    if (!targetChurchId) {
+      toast.error("Igreja não selecionada.");
+      return;
+    }
+
+    setSavingTask(true);
+    try {
+      const { data, error } = await supabase.from('assembly_tasks').insert({
+        titulo: newTitulo,
+        descricao: newDesc,
+        responsavel: newResp,
+        data_limite: newPrazo || null,
+        status: 'pendente',
+        church_id: targetChurchId
+      }).select().single();
+
+      if (error) throw error;
+      if (data) setTasks(prev => [data as Task, ...prev]);
+      toast.success("Pendência adicionada com sucesso!");
+      setIsAddOpen(false);
+      setNewTitulo("");
+      setNewDesc("");
+      setNewResp("");
+      setNewPrazo("");
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Erro ao salvar pendência: " + (err.message || "Erro desconhecido"));
+    } finally {
+      setSavingTask(false);
+    }
+  };
 
   const fetchTasks = async () => {
     if (!store.selectedChurchId) return;
@@ -100,6 +152,9 @@ export function PendenciasPage({ store }: Props) {
           <p className="text-sm text-muted-foreground mt-1">Acompanhe as tarefas geradas nas reuniões</p>
         </div>
         <div className="flex items-center gap-3">
+          <Button size="sm" onClick={() => setIsAddOpen(true)} className="gap-1.5 bg-primary text-primary-foreground shadow-sm text-xs">
+            <Plus className="w-4 h-4" /> Nova Pendência
+          </Button>
           <div className="px-3 py-1.5 rounded-full bg-amber-100 text-amber-700 text-xs font-bold border border-amber-200">
             {pendingCount} Pendentes
           </div>
@@ -192,14 +247,26 @@ export function PendenciasPage({ store }: Props) {
                   </div>
                 </div>
 
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => handleDelete(task.id)}
-                  className="shrink-0 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0 rounded-full transition-opacity"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => handleWhatsAppReminder(task)}
+                    title="Enviar lembrete via WhatsApp"
+                    className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 h-8 w-8 p-0 rounded-full"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                  </Button>
+
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => handleDelete(task.id)}
+                    className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0 rounded-full transition-opacity"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             );
           })}
@@ -219,6 +286,71 @@ export function PendenciasPage({ store }: Props) {
           </p>
         </div>
       </div>
+      {/* Dialog para Nova Pendência Manual */}
+      <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+        <DialogContent className="sm:max-w-md">
+          <form onSubmit={handleCreateTask}>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Plus className="w-5 h-5 text-primary" /> Nova Pendência / Tarefa
+              </DialogTitle>
+              <DialogDescription>
+                Cadastre uma tarefa avulsa decidida em reunião para acompanhamento de prazos.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-3 py-4">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase">Título da Tarefa *</label>
+                <Input
+                  value={newTitulo}
+                  onChange={(e) => setNewTitulo(e.target.value)}
+                  placeholder="Ex: Reforma do forro do templo"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase">Descrição / Detalhes</label>
+                <Input
+                  value={newDesc}
+                  onChange={(e) => setNewDesc(e.target.value)}
+                  placeholder="Ex: Obter 3 orçamentos com empresas especializadas"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase">Responsável</label>
+                  <Input
+                    value={newResp}
+                    onChange={(e) => setNewResp(e.target.value)}
+                    placeholder="Ex: Diácono Marcos"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase">Prazo Limite</label>
+                  <Input
+                    type="date"
+                    value={newPrazo}
+                    onChange={(e) => setNewPrazo(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={savingTask} className="gap-2">
+                {savingTask ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                Salvar Pendência
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

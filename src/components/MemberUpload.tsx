@@ -32,7 +32,7 @@ export function MemberUpload({ onImport, existingMembros }: Props) {
           generoRaw.startsWith('f') ? 'feminino' : 'masculino';
 
         if (!existingMembros.some(m => m.nome === nome)) {
-          membros.push({ nome, cargo, genero });
+          membros.push({ nome, cargo, genero, ativo: true });
         }
       }
     }

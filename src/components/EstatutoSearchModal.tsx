@@ -59,10 +59,10 @@ export function EstatutoSearchModal({ isOpen, onClose, estatutoTexto, regimentoT
       }
 
       // Detectar Estrutura (Títulos não entram como conteúdo de bloco por si só)
-      const capMatch = trimmed.match(/^(?:CAPÍTULO|Capítulo)\s+([IVXLCDM\d\.\-]+)/i);
-      const secMatch = trimmed.match(/^(?:SEÇÃO|Seção)\s+([IVXLCDM\d\.\-]+)/i);
-      const subMatch = trimmed.match(/^(?:SUBSEÇÃO|Subseção)\s+([IVXLCDM\d\.\-]+)/i);
-      const artMatch = trimmed.match(/^(?:Art\.|Artigo)\s*(\d+[ºª\.]?)/i);
+      const capMatch = trimmed.match(/^(?:CAPÍTULO|Capítulo)\s+([IVXLCDM\d.-]+)/i);
+      const secMatch = trimmed.match(/^(?:SEÇÃO|Seção)\s+([IVXLCDM\d.-]+)/i);
+      const subMatch = trimmed.match(/^(?:SUBSEÇÃO|Subseção)\s+([IVXLCDM\d.-]+)/i);
+      const artMatch = trimmed.match(/^(?:Art\.|Artigo)\s*(\d+[ºª.]?)/i);
 
       if (capMatch || secMatch || subMatch || artMatch) {
         flushBlock(); // Novo marcador estrutural encerra o bloco anterior

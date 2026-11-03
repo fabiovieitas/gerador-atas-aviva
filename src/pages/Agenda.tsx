@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useAtaStore } from "@/hooks/useAtaStore";
 import { 
   Calendar as CalendarIcon, 
   Plus, 
@@ -39,7 +40,11 @@ interface ScheduledMeeting {
   churches?: { nome: string };
 }
 
-export function AgendaPage() {
+interface Props {
+  store?: ReturnType<typeof useAtaStore>;
+}
+
+export function AgendaPage({ store }: Props = {}) {
   const { isAdmin, isMaster, profile } = useAuth();
   const navigate = useNavigate();
   const [meetings, setMeetings] = useState<ScheduledMeeting[]>([]);

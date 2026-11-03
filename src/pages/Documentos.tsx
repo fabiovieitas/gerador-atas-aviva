@@ -38,9 +38,12 @@ interface OfficialDocument {
   church_id: string | null;
 }
 
-export function DocumentosPage() {
+interface Props {
+  store: ReturnType<typeof useAtaStore>;
+}
+
+export function DocumentosPage({ store }: Props) {
   const { isAdmin, isMaster, profile } = useAuth();
-  const store = useAtaStore();
   const [documents, setDocuments] = useState<OfficialDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [isUploadOpen, setIsUploadOpen] = useState(false);

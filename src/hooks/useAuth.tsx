@@ -54,6 +54,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setLoading(false);
       }
+    }).catch(err => {
+      console.error("Erro ao obter sessão do Supabase:", err);
+      setLoading(false);
     });
 
     // 2. Ouve mudanças de auth

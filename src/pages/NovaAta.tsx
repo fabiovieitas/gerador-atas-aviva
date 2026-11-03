@@ -13,6 +13,8 @@ import { useState, useMemo, useEffect } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PresencaQR } from "@/components/PresencaQR";
+import { QuorumAdvisor } from "@/components/QuorumAdvisor";
+import { AudioMeetingRecorder } from "@/components/AudioMeetingRecorder";
 import { useAuth } from "@/hooks/useAuth";
 
 interface Props {
@@ -112,6 +114,24 @@ export function NovaAtaPage({ store }: Props) {
     toast.info("Dados de teste preenchidos!");
   };
 
+  const handleApplyAudio = (dados: {
+    assuntosPrincipais?: string;
+    deliberacoes?: string[];
+    palavraInicial?: string;
+  }) => {
+    if (dados.assuntosPrincipais) {
+      store.updateField('assuntosPrincipais', dados.assuntosPrincipais);
+    }
+    if (dados.palavraInicial) {
+      store.updateField('palavraInicial', dados.palavraInicial);
+    }
+    if (dados.deliberacoes && dados.deliberacoes.length > 0) {
+      dados.deliberacoes.forEach((itemTexto) => {
+        store.updateDeliberacao(Date.now().toString(), { texto: itemTexto });
+      });
+    }
+  };
+
   const handleLimpar = () => {
     const confirmar = window.confirm("Deseja limpar todos os dados desta ata?");
     if (!confirmar) return;
@@ -158,6 +178,7 @@ export function NovaAtaPage({ store }: Props) {
           <Button variant="outline" onClick={handleLimpar} className="gap-2 px-4 py-2.5 text-sm border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive">
             <Eraser className="w-4 h-4" /> Limpar
           </Button>
+          <AudioMeetingRecorder onApplyToAta={handleApplyAudio} />
         </div>
 
         {typeof store.currentAtaId === 'string' && (
@@ -203,6 +224,18 @@ export function NovaAtaPage({ store }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Consultor de Quórum Estatutário em Tempo Real */}
+      <QuorumAdvisor
+        totalMembrosAtivos={store.membros.filter(m => m.ativo !== false).length}
+        membrosPresentesCount={store.membrosPresentes.length}
+        tipoAssembleia={store.formData.tipoAssembleia}
+        semQuorum={store.formData.semQuorum}
+        horaInicio={store.formData.horaInicio}
+        horaSegundaChamada={store.formData.horaSegundaChamada}
+        onUpdateSemQuorum={(val) => store.updateField("semQuorum", val)}
+        onUpdateHoraSegundaChamada={(hora) => store.updateField("horaSegundaChamada", hora)}
+      />
 
       {/* Tabs */}
       <Tabs defaultValue="info" className="w-full">

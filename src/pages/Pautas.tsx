@@ -17,10 +17,13 @@ interface Pauta {
   itens: string[];
 }
 
-export function PautasPage() {
+interface Props {
+  store: ReturnType<typeof useAtaStore>;
+}
+
+export function PautasPage({ store }: Props) {
   const { profile, isAdmin, isMaster } = useAuth();
   const navigate = useNavigate();
-  const store = useAtaStore();
   const [pautas, setPautas] = useState<Pauta[]>([]);
   const [loading, setLoading] = useState(true);
   

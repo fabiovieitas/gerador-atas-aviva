@@ -5,6 +5,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import html2pdf from 'html2pdf.js';
+import { exportarParaDocx } from '@/lib/docxExport';
 import { supabase } from '@/integrations/supabase/client';
 import { EstatutoSearchModal } from "./EstatutoSearchModal";
 
@@ -84,10 +85,10 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto, signatureData, ch
   };
 
   const buildWordHtml = () => {
-    let raw = editing && editorRef.current ? editorRef.current.innerText : ataTexto;
+    const raw = editing && editorRef.current ? editorRef.current.innerText : ataTexto;
     
     const lines = raw.split('\n');
-    let htmlParts: string[] = [];
+    const htmlParts: string[] = [];
     
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -130,39 +131,23 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto, signatureData, ch
     return htmlParts.join('');
   };
 
-  const baixarWord = () => {
-    const content = buildWordHtml();
-    const header = `
-      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-      <head>
-        <meta charset='utf-8'>
-        <title>Ata</title>
-        <style>
-          @page { size: 21cm 29.7cm; margin: 2.5cm; }
-          body { font-family: 'Calibri', 'Arial', sans-serif; font-size: 13pt; text-align: justify; line-height: 1.5; color: black; }
-          p { margin: 0; text-indent: 1.5cm; margin-bottom: 0px; line-height: 1.5; }
-          .titulo { text-align: center; font-weight: bold; text-decoration: underline; text-indent: 0; margin-bottom: 20px; }
-          .assinaturas { margin-top: 50px; display: flex; justify-content: space-between; page-break-inside: avoid; }
-          .assinatura-box { text-align: center; width: 45%; }
-          .linha { border-top: 1px solid black; margin-bottom: 5px; width: 100%; }
-          .assinatura-box p { text-indent: 0; margin: 0; font-size: 11pt; }
-        </style>
-      </head>
-      <body>
-        ${content}
-      </body>
-      </html>
-    `;
-    
-    const blob = new Blob(['\ufeff', header], { type: 'application/msword' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = getNomeArquivoWord();
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success("Ata baixada (Word)");
-    setHouveEdicao(false);
+  const baixarWord = async () => {
+    try {
+      toast.info("Gerando documento Word (.docx)...");
+      const raw = editing && editorRef.current ? editorRef.current.innerText : ataTexto;
+      const blob = await exportarParaDocx("Ata de Assembleia", raw, signatureData, churchInfo);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = getNomeArquivoWord().replace(/\.doc$/i, '.docx');
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Ata baixada com sucesso no formato Word (.docx)!");
+      setHouveEdicao(false);
+    } catch (err: any) {
+      console.error("Erro ao gerar docx:", err);
+      toast.error("Falha ao gerar arquivo .docx");
+    }
   };
 
   const baixarPDF = () => {
@@ -189,7 +174,7 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto, signatureData, ch
 
     const opt = {
       margin: 0,
-      filename: getNomeArquivoWord().replace('.doc', '.pdf'),
+      filename: getNomeArquivoWord().replace(/\.docx?$/i, '.pdf'),
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2, useCORS: true },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
@@ -246,14 +231,14 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto, signatureData, ch
       const dia = dataMatch[1];
       const mes = capitalize(dataMatch[2]);
       const ano = dataMatch[3];
-      return `${dia} - Ata ${tipo} ${mes} de ${ano}.doc`;
+      return `${dia} - Ata ${tipo} ${mes} de ${ano}.docx`;
     }
 
     const hoje = new Date();
     const dia = String(hoje.getDate()).padStart(2, "0");
     const mes = hoje.toLocaleDateString("pt-BR", { month: "long" });
     const ano = String(hoje.getFullYear());
-    return `${dia} - Ata ${tipo} ${capitalize(mes)} de ${ano}.doc`;
+    return `${dia} - Ata ${tipo} ${capitalize(mes)} de ${ano}.docx`;
   };
 
   const restaurar = () => {
@@ -268,12 +253,6 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto, signatureData, ch
   };
 
   const handleAISuggest = async () => {
-    if (!churchInfo?.gemini_api_key) {
-      const infoStr = churchInfo ? `Igreja: ${churchInfo.nome}` : "Sem igreja selecionada";
-      toast.error(`IA não configurada (${infoStr}). Tente selecionar a igreja no menu lateral.`);
-      return;
-    }
-
     const selection = window.getSelection()?.toString();
     const textoParaMelhorar = selection || ataTexto;
 
@@ -283,50 +262,82 @@ export function AtaEditor({ ataTexto, onUpdate, originalTexto, signatureData, ch
     }
 
     setIsAiLoading(true);
-    toast.info("Gemini está redigindo seu texto...");
+    toast.info("Redigindo com IA Jurídica...");
+
+    const promptSistema = `Você é um secretário executivo eclesiástico e jurídico de alta precisão da Igreja Evangélica AVIVA.
+Sua missão é redigir ou aprimorar o texto de uma ata de assembleia com base nas informações/tópicos fornecidos.
+Diretrizes:
+- Use terminologia formal canônica (ex: 'submeteu-se à apreciação soberana da assembleia', 'aprovado por unanimidade dos membros presentes', 'lavrou-se a presente ata').
+- Mantenha rigorosamente todos os nomes de membros, datas, cargos e valores monetários informados.
+- Retorne APENAS o texto corrido e formal para inserção direta na ata, sem introduções, cumprimentos ou explicações.`;
 
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${churchInfo.gemini_api_key}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: `Você é um secretário de igreja experiente e formal. 
-              Escreva um parágrafo de ata de assembleia baseado nos seguintes tópicos: "${textoParaMelhorar}". 
-              Use uma linguagem jurídica e eclesiástica formal (ex: 'submeteu-se à apreciação', 'aprovado por unanimidade', 'lavrou-se a presente'). 
-              Se houver nomes de pessoas, mantenha-os. Não use saudações, apenas o texto corrido do parágrafo da ata.`
-            }]
-          }]
-        })
-      });
+      let aiText = "";
+      const freeLlmUrl = import.meta.env.VITE_FREELLMAPI_URL || "http://127.0.0.1:3001/v1";
+      const freeLlmKey = import.meta.env.VITE_FREELLMAPI_KEY || "freellmapi-0af93b3a0e1cbe45a5785fd84071080555fc11b147d6f7f2";
 
-      const data = await response.json();
-      
-      if (data.error) {
-        throw new Error(data.error.message || "Erro desconhecido no Google");
-      }
+      // 1. Tenta via FreeLLMAPI (R$ 0 - Claude 3.5 Sonnet / Qwen / Auto)
+      try {
+        const resFree = await fetch(`${freeLlmUrl}/chat/completions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${freeLlmKey}`
+          },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-5",
+            messages: [
+              { role: "system", content: promptSistema },
+              { role: "user", content: `Estruture formalmente para a ata os seguintes tópicos:\n\n${textoParaMelhorar}` }
+            ],
+            temperature: 0.2
+          })
+        });
 
-      const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-      if (aiText) {
-        if (selection) {
-          execCmd('insertText', aiText);
-        } else {
-          // Se não houver seleção, substitui ou adiciona ao fim
-          const novoTexto = ataTexto + "\n\n" + aiText;
-          onUpdate(novoTexto);
-          if (editorRef.current) {
-            editorRef.current.innerText = novoTexto;
-          }
+        if (resFree.ok) {
+          const dataFree = await resFree.json();
+          aiText = dataFree.choices?.[0]?.message?.content?.trim() || "";
         }
-        toast.success("Texto formatado pela IA com sucesso!");
-      } else {
-        throw new Error("Resposta da IA vazia");
+      } catch (errFree) {
+        console.warn("FreeLLMAPI indisponível, verificando fallback:", errFree);
       }
+
+      // 2. Fallback caso FreeLLMAPI falhe e exista chave do Gemini configurada
+      if (!aiText && churchInfo?.gemini_api_key) {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${churchInfo.gemini_api_key}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{
+                text: `${promptSistema}\n\nTópicos:\n"${textoParaMelhorar}"`
+              }]
+            }]
+          })
+        });
+
+        const data = await response.json();
+        if (data.error) throw new Error(data.error.message || "Erro no Google Gemini");
+        aiText = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+      }
+
+      if (!aiText) {
+        throw new Error("Não foi possível conectar ao FreeLLMAPI nem ao Gemini de contingência.");
+      }
+
+      if (selection) {
+        execCmd('insertText', aiText);
+      } else {
+        const novoTexto = ataTexto + "\n\n" + aiText;
+        onUpdate(novoTexto);
+        if (editorRef.current) {
+          editorRef.current.innerText = novoTexto;
+        }
+      }
+      toast.success("Texto formatado pela IA com sucesso!");
     } catch (err: any) {
       console.error(err);
-      toast.error(`Erro: ${err.message || "Falha na conexão"}`);
+      toast.error(`Erro: ${err.message || "Falha na conexão com a IA"}`);
     } finally {
       setIsAiLoading(false);
     }
