@@ -12,7 +12,8 @@ import {
   Volume2,
   Trash2,
   Clock,
-  CheckCircle2
+  CheckCircle2,
+  Tag
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -106,177 +107,91 @@ export function AudioMeetingRecorder({ churchId, onApplyToAta }: Props) {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  // Factory para criar uma instância limpa do Web Speech API sempre que necessário
-  const createSpeechRecognition = () => {
+  // Inicializa o Web Speech API nativo diretamente (suportado no Chrome, Edge, Safari e Opera)
+  // IDÊNTICO À PRIMEIRA VERSÃO (d147370) que funcionava perfeitamente
+  useEffect(() => {
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
-    if (!SpeechRecognition) {
-      toast.error("Reconhecimento de fala nativo não suportado neste navegador. Use Google Chrome ou Edge.");
-      return null;
-    }
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = "pt-BR";
 
-    try {
-      if (recognitionRef.current) {
-        recognitionRef.current.onend = null;
-        recognitionRef.current.onerror = null;
-        recognitionRef.current.onresult = null;
-        try { recognitionRef.current.abort(); } catch {}
-      }
-    } catch {}
+      recognition.onresult = (event: any) => {
+        let currentInterim = "";
+        let currentFinal = "";
 
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = "pt-BR";
-    recognition.maxAlternatives = 1;
-
-    recognition.onresult = (event: any) => {
-      let currentInterim = "";
-      let currentFinal = "";
-
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const item = event.results[i];
-        if (item.isFinal) {
-          currentFinal += item[0].transcript + " ";
-        } else {
-          currentInterim += item[0].transcript;
-        }
-      }
-
-      if (currentFinal) {
-        setTranscript((prev) => (prev ? prev.trim() + " " : "") + currentFinal.trim());
-      }
-      setInterimTranscript(currentInterim);
-    };
-
-    recognition.onerror = (event: any) => {
-      console.warn("SpeechRecognition erro:", event.error);
-      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
-        toast.error("Permissão de microfone negada. Clique no cadeado da barra de endereço e permita o microfone.");
-        isRecordingRef.current = false;
-        setIsRecording(false);
-      } else if (event.error === "audio-capture") {
-        toast.error("Nenhum microfone detectado ou microfone ocupado por outro programa.");
-      }
-    };
-
-    recognition.onend = () => {
-      // Se ainda estiver no modo gravando, reinicia com uma nova instância limpa
-      if (isRecordingRef.current) {
-        try {
-          const nextRec = createSpeechRecognition();
-          if (nextRec) {
-            recognitionRef.current = nextRec;
-            nextRec.start();
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const item = event.results[i];
+          if (item.isFinal) {
+            currentFinal += item[0].transcript + " ";
+          } else {
+            currentInterim += item[0].transcript;
           }
-        } catch (e) {
-          console.warn("Erro ao reiniciar recognition:", e);
         }
-      }
-    };
 
-    return recognition;
-  };
+        if (currentFinal) {
+          setTranscript((prev) => prev + currentFinal);
+        }
+        setInterimTranscript(currentInterim);
+      };
 
-  // Iniciar gravação física de áudio (MediaRecorder)
-  const startAudioRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioStreamRef.current = stream;
-      audioChunksRef.current = [];
-
-      let options: MediaRecorderOptions = {};
-      if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
-        options = { mimeType: "audio/webm;codecs=opus" };
-      } else if (MediaRecorder.isTypeSupported("audio/webm")) {
-        options = { mimeType: "audio/webm" };
-      } else if (MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")) {
-        options = { mimeType: "audio/ogg;codecs=opus" };
-      } else if (MediaRecorder.isTypeSupported("audio/mp4")) {
-        options = { mimeType: "audio/mp4" };
-      }
-
-      const recorder = new MediaRecorder(stream, options);
-
-      recorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
+      recognition.onerror = (event: any) => {
+        console.error("Erro no reconhecimento de voz:", event.error);
+        if (event.error === "not-allowed") {
+          toast.error("Permissão de microfone negada no navegador.");
+          setIsRecording(false);
+          isRecordingRef.current = false;
         }
       };
 
-      recorder.onstop = () => {
-        const mime = recorder.mimeType || "audio/webm";
-        const blob = new Blob(audioChunksRef.current, { type: mime });
-        setRecordedAudioBlob(blob);
-        const url = URL.createObjectURL(blob);
-        setRecordedAudioUrl(url);
+      recognition.onend = () => {
+        // Se ainda deveria estar gravando, reconecta (evita pausas do browser por silêncio)
+        if (isRecording) {
+          try {
+            recognition.start();
+          } catch {}
+        }
       };
 
-      recorder.start(1000); // Coleta dados a cada 1 segundo
-      mediaRecorderRef.current = recorder;
-    } catch (err) {
-      console.warn("Não foi possível acessar o microfone para MediaRecorder:", err);
+      recognitionRef.current = recognition;
     }
-  };
+  }, [isRecording]);
 
-  // Parar gravação física de áudio
-  const stopAudioRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      try {
-        mediaRecorderRef.current.stop();
-      } catch {}
+  const toggleRecording = () => {
+    if (!recognitionRef.current) {
+      toast.error("Reconhecimento de fala nativo não suportado neste navegador. Use Google Chrome ou Edge.");
+      return;
     }
-    if (audioStreamRef.current) {
-      audioStreamRef.current.getTracks().forEach((track) => track.stop());
-      audioStreamRef.current = null;
-    }
-  };
 
-  const toggleRecording = async () => {
     if (isRecording) {
-      // Finalizar gravação
       isRecordingRef.current = false;
       setIsRecording(false);
       setInterimTranscript("");
-
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.onend = null;
-          recognitionRef.current.stop();
-        } catch {}
-        recognitionRef.current = null;
-      }
-      stopAudioRecording();
-      toast.info("Gravação de voz finalizada!");
+      try {
+        recognitionRef.current.stop();
+      } catch {}
+      toast.info("Gravação de voz pausada.");
     } else {
-      // Iniciar gravação
-      setRecordingSeconds(0);
-      setRecordedAudioUrl(null);
-      setRecordedAudioBlob(null);
-
-      isRecordingRef.current = true;
-      setIsRecording(true);
-
-      // Inicia o reconhecimento de fala em tempo real com uma instância limpa
-      const rec = createSpeechRecognition();
-      if (rec) {
-        recognitionRef.current = rec;
+      try {
+        recognitionRef.current.start();
+        setIsRecording(true);
+        isRecordingRef.current = true;
+        toast.success("Gravando áudio da assembleia em tempo real... Fale agora!");
+      } catch (err: any) {
+        console.error("Erro ao iniciar reconhecimento:", err);
+        // Se já estava em execução, tenta parar e religar
         try {
-          rec.start();
-          toast.success("Ouvindo microfone... Fale agora!");
-        } catch (err: any) {
-          console.warn("SpeechRecognition start erro:", err);
-          toast.error("Erro ao iniciar microfone: " + err.message);
-        }
-      }
-
-      // Se a gravação de arquivo físico estiver ativada, inicia em conjunto
-      if (recordRawAudio) {
-        try {
-          await startAudioRecording();
-        } catch (err) {
-          console.warn("MediaRecorder erro:", err);
+          recognitionRef.current.stop();
+          setTimeout(() => {
+            recognitionRef.current.start();
+            setIsRecording(true);
+            isRecordingRef.current = true;
+          }, 200);
+        } catch (e2) {
+          toast.error("Erro ao acessar o microfone.");
         }
       }
     }
@@ -855,6 +770,30 @@ ${transcript}
                 </button>
               )}
             </div>
+
+            {/* Palavras-chave e Tags Detectadas Ao Vivo Conforme a Fala Acontece */}
+            {(() => {
+              const liveTags = detectHeuristicTags(transcript + (interimTranscript ? " " + interimTranscript : ""));
+              if (liveTags.length === 0) return null;
+              return (
+                <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 space-y-1 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5 uppercase">
+                      <Tag className="w-3.5 h-3.5 text-emerald-600" />
+                      Palavras-chave Detectadas Ao Vivo na Reunião ({liveTags.length}):
+                    </span>
+                    <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium">Reconhecimento Heurístico</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 pt-0.5">
+                    {liveTags.map((tag) => (
+                      <Badge key={tag} className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-2.5 py-0.5 shadow-xs">
+                        #{tag}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
 
             <Textarea
               value={transcript + (interimTranscript ? ` (${interimTranscript})` : "")}

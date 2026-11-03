@@ -3,13 +3,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Trash2, Eye, Clock, User, Church, Filter, Image as ImageIcon, Users, ExternalLink, Book, CheckSquare, X, RefreshCcw } from "lucide-react";
+import { FileText, Trash2, Eye, Clock, User, Church, Filter, Image as ImageIcon, Users, ExternalLink, Book, CheckSquare, X, RefreshCcw, Download, Tag } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAtaStore } from "@/hooks/useAtaStore";
+import { exportarParaDocx } from "@/lib/docxExport";
 // import html2pdf from 'html2pdf.js';
 
 interface AtaRow {
@@ -146,6 +147,91 @@ export function HistoricoPage({ store }: Props) {
     setAtasSelecionadas((prev) => 
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
+  };
+
+  // Gera o nome padronizado do arquivo conforme a regra do usuário:
+  // "01 - Ata Ordinária Janeiro de 2026.docx"
+  const getAtaFilename = (ata: AtaRow, ext: string = "docx") => {
+    const dados = ata.dados_json || {};
+
+    // 1. Tipo de Assembleia (Ordinária ou Extraordinária)
+    let tipo = "Ordinária";
+    if (dados.tipoAssembleia) {
+      tipo = dados.tipoAssembleia.toLowerCase().includes("extra") ? "Extraordinária" : "Ordinária";
+    } else if (ata.titulo.toLowerCase().includes("extra")) {
+      tipo = "Extraordinária";
+    }
+
+    const meses = [
+      "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+      "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+    ];
+
+    let dia = "01";
+    let mes = "Janeiro";
+    let ano = "2026";
+
+    if (dados.dataReuniao) {
+      const parts = dados.dataReuniao.split("-");
+      if (parts.length === 3) {
+        ano = parts[0];
+        const mIdx = parseInt(parts[1], 10) - 1;
+        mes = meses[mIdx] || "Janeiro";
+        dia = String(parseInt(parts[2], 10)).padStart(2, "0");
+      }
+    } else if (ata.conteudo) {
+      const matchData = ata.conteudo.match(/Ao(?:s)?\s+(primeiro|\d{1,2})\s+dia\s+do\s+mês\s+de\s+([a-zà-úç]+)\s+do\s+ano\s+de\s+([a-zà-úç\s]+|\d{4})/i);
+      if (matchData) {
+        dia = matchData[1].toLowerCase() === "primeiro" ? "01" : matchData[1].padStart(2, "0");
+        mes = matchData[2].charAt(0).toUpperCase() + matchData[2].slice(1).toLowerCase();
+      }
+      const matchAno = ata.conteudo.match(/202[4-9]/);
+      if (matchAno) ano = matchAno[0];
+    } else if (ata.created_at) {
+      const d = new Date(ata.created_at);
+      dia = String(d.getDate()).padStart(2, "0");
+      mes = meses[d.getMonth()];
+      ano = String(d.getFullYear());
+    }
+
+    return `${dia} - Ata ${tipo} ${mes} de ${ano}.${ext}`;
+  };
+
+  const handleDownloadAta = async (ata: AtaRow) => {
+    try {
+      const fileName = getAtaFilename(ata, "docx");
+      toast.info(`Gerando documento Word: ${fileName}...`);
+
+      const dados = ata.dados_json || {};
+      const tituloDirigente = dados.tituloDirigente || store.defaults.tituloDirigente || "Presbítero";
+      const signatureData = {
+        secretarioNome: dados.nomeSecretario || store.defaults.nomeSecretario || "Secretário(a)",
+        secretarioCargo: "Secretário(a) da Assembleia",
+        presidenteNome: dados.pastorDirigente || store.defaults.pastorDirigente || "Dirigente",
+        presidenteCargo: `${tituloDirigente} - Dirigente da Assembleia`,
+      };
+
+      const church = {
+        nome: ata.church_nome && ata.church_nome !== "—" ? ata.church_nome : (churchInfo?.nome || store.churchInfo?.nome || "Igreja Evangélica AVIVA"),
+        cidade: store.churchInfo?.cidade || "",
+        estado: store.churchInfo?.estado || "",
+      };
+
+      const blob = await exportarParaDocx(ata.titulo, ata.conteudo || "", signatureData, church);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success(`Ata baixada com sucesso: ${fileName}`);
+    } catch (err: any) {
+      console.error("Erro ao gerar docx:", err);
+      toast.error("Falha ao gerar arquivo .docx: " + (err.message || "Erro desconhecido"));
+    }
   };
 
   // Gera o livro de atas usando uma janela temporária.
@@ -424,6 +510,16 @@ const gerarLivroAtas = async () => {
               </div>
               
               <div className="flex flex-wrap items-center gap-2 shrink-0 justify-end">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleDownloadAta(ata)}
+                  className="gap-1.5 border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 font-semibold shadow-2xs"
+                  title={`Baixar: ${getAtaFilename(ata, 'docx')}`}
+                >
+                  <Download className="w-3.5 h-3.5 text-emerald-600" /> Baixar
+                </Button>
+
                 <Dialog>
                   <DialogTrigger asChild>
                     <Button size="sm" variant="outline" className="gap-1.5 border-primary/20 text-primary hover:bg-primary/5">
@@ -438,6 +534,9 @@ const gerarLivroAtas = async () => {
                       {ata.conteudo || "O texto desta ata não foi encontrado."}
                     </div>
                     <div className="flex justify-end gap-2 mt-4">
+                      <Button variant="outline" size="sm" onClick={() => handleDownloadAta(ata)} className="gap-1.5 text-emerald-700 dark:text-emerald-300 border-emerald-400">
+                        <Download className="w-3.5 h-3.5" /> Baixar Word (.docx)
+                      </Button>
                       <Button variant="secondary" size="sm" onClick={() => {
                         const win = window.open('', '_blank');
                         if (win) {
