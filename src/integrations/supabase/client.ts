@@ -2,8 +2,16 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+// Active project credentials (fail-safe fallback against outdated Vercel dashboard env vars)
+const ACTIVE_SUPABASE_URL = "https://pnxssrrfgmmcxvrwzkvh.supabase.co";
+const ACTIVE_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBueHNzcnJmZ21tY3h2cnd6a3ZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0OTk3MzAsImV4cCI6MjA5MTA3NTczMH0.gNTI7_9rJmjDvzmJaOX2FlvPLlQh5L_eIkjUweBorVg";
+
+const envUrl = import.meta.env.VITE_SUPABASE_URL;
+const envKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+// If env is empty or points to the old dead Lovable project, use the active database
+const SUPABASE_URL = (!envUrl || envUrl.includes('tkdtagdpqipdvwceqkoa')) ? ACTIVE_SUPABASE_URL : envUrl;
+const SUPABASE_PUBLISHABLE_KEY = (!envKey || envUrl?.includes('tkdtagdpqipdvwceqkoa')) ? ACTIVE_SUPABASE_KEY : envKey;
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
