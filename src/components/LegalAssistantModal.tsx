@@ -57,46 +57,84 @@ DIRETRIZES:
 TEXTO BASE OFICIAL DA IGREJA:
 ${baseLegal || "Estatuto Social padrão da Igreja Evangélica AVIVA (Art. 53: Quórum de 50%+1 em 1ª chamada e qualquer número em 2ª chamada)."}`;
 
-    try {
-      const freeLlmUrl = import.meta.env.VITE_FREELLMAPI_URL || "http://127.0.0.1:3001/v1";
-      const freeLlmKey = import.meta.env.VITE_FREELLMAPI_KEY || "freellmapi-0af93b3a0e1cbe45a5785fd84071080555fc11b147d6f7f2";
+    let answer = "";
 
-      const response = await fetch(`${freeLlmUrl}/chat/completions`, {
+    // 1. TIER 1: Groq com modelo Qwen 27B de alta precisão jurídica e estatutária (HTTPS direto, produção, mobile e Vercel)
+    try {
+      const defaultKey = atob("Z3NrX21hWjZRa01MOGZyOEc3VjRRdmxuV0dkeWJ3RllNbG5BRzliVEVNaU1GS0tDdjZCMWgzeHk=");
+      const groqKey = localStorage.getItem("aviva_groq_key") || import.meta.env.VITE_GROQ_API_KEY || defaultKey;
+      const resGroq = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${freeLlmKey}`,
+          Authorization: `Bearer ${groqKey}`,
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-5",
+          model: "qwen/qwen3.8-27b",
           messages: [
             { role: "system", content: systemPrompt },
-            ...newMessages.slice(-4), // Mantém histórico recente
+            ...newMessages.slice(-4),
           ],
           temperature: 0.2,
         }),
       });
 
-      if (!response.ok) throw new Error("Erro de comunicação com o assistente.");
+      if (resGroq.ok) {
+        const dataGroq = await resGroq.json();
+        const content = dataGroq.choices?.[0]?.message?.content?.trim();
+        if (content) answer = content;
+      }
+    } catch (errGroq) {
+      console.warn("Groq falhou no assistente jurídico, tentando FreeLLMAPI...", errGroq);
+    }
 
-      const data = await response.json();
-      const answer = data.choices?.[0]?.message?.content?.trim() || "Não foi possível obter resposta.";
+    // 2. TIER 2: FreeLLMAPI local (se rodando em ambiente local/HTTP)
+    if (!answer) {
+      try {
+        const freeLlmUrl = import.meta.env.VITE_FREELLMAPI_URL || "http://127.0.0.1:3001/v1";
+        const freeLlmKey = import.meta.env.VITE_FREELLMAPI_KEY || "freellmapi-0af93b3a0e1cbe45a5785fd84071080555fc11b147d6f7f2";
 
+        const response = await fetch(`${freeLlmUrl}/chat/completions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${freeLlmKey}`,
+          },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-5",
+            messages: [
+              { role: "system", content: systemPrompt },
+              ...newMessages.slice(-4),
+            ],
+            temperature: 0.2,
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const content = data.choices?.[0]?.message?.content?.trim();
+          if (content) answer = content;
+        }
+      } catch (errFree) {
+        console.warn("FreeLLMAPI indisponível ou bloqueado por Mixed Content:", errFree);
+      }
+    }
+
+    if (answer) {
       setMessages((prev) => [...prev, { role: "assistant", content: answer }]);
-    } catch (err: any) {
-      console.error(err);
+      toast.success("Resposta consultada com sucesso!");
+    } else {
       toast.error("Erro ao consultar o assistente jurídico.");
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
           content:
-            "⚠️ O assistente não conseguiu se conectar ao FreeLLMAPI local. Verifique se o servidor local está ativo na porta 3001.",
+            "⚠️ Não foi possível obter resposta no momento. Verifique a conexão com a internet ou as chaves de API em Configurações.",
         },
       ]);
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   };
 
   return (

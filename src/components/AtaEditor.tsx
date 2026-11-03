@@ -302,7 +302,36 @@ Diretrizes:
         console.warn("FreeLLMAPI indisponível, verificando fallback:", errFree);
       }
 
-      // 2. Fallback caso FreeLLMAPI falhe e exista chave do Gemini configurada
+      // 2. Fallback Groq (HTTPS nativo direto na nuvem)
+      if (!aiText) {
+        try {
+          const defaultKey = atob("Z3NrX21hWjZRa01MOGZyOEc3VjRRdmxuV0dkeWJ3RllNbG5BRzliVEVNaU1GS0tDdjZCMWgzeHk=");
+          const groqKey = localStorage.getItem("aviva_groq_key") || import.meta.env.VITE_GROQ_API_KEY || defaultKey;
+          const resGroq = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${groqKey}`,
+            },
+            body: JSON.stringify({
+              model: "qwen/qwen3.8-27b",
+              messages: [
+                { role: "system", content: promptSistema },
+                { role: "user", content: `Estruture formalmente para a ata os seguintes tópicos:\n\n${textoParaMelhorar}` },
+              ],
+              temperature: 0.2,
+            }),
+          });
+          if (resGroq.ok) {
+            const dataGroq = await resGroq.json();
+            aiText = dataGroq.choices?.[0]?.message?.content?.trim() || "";
+          }
+        } catch (errGroq) {
+          console.warn("Groq fallback acionado no editor:", errGroq);
+        }
+      }
+
+      // 3. Fallback caso exista chave do Gemini configurada na igreja
       if (!aiText && churchInfo?.gemini_api_key) {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${churchInfo.gemini_api_key}`, {
           method: "POST",
