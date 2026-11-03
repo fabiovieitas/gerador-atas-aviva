@@ -178,7 +178,7 @@ export function NovaAtaPage({ store }: Props) {
           <Button variant="outline" onClick={handleLimpar} className="gap-2 px-4 py-2.5 text-sm border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive">
             <Eraser className="w-4 h-4" /> Limpar
           </Button>
-          <AudioMeetingRecorder onApplyToAta={handleApplyAudio} />
+          <AudioMeetingRecorder churchId={store.selectedChurchId || undefined} onApplyToAta={handleApplyAudio} />
         </div>
 
         {typeof store.currentAtaId === 'string' && (
