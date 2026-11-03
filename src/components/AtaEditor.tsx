@@ -320,6 +320,7 @@ Diretrizes:
                 { role: "user", content: `Estruture formalmente para a ata os seguintes tópicos:\n\n${textoParaMelhorar}` },
               ],
               temperature: 0.2,
+              max_tokens: 700,
             }),
           });
           if (resGroq.ok) {

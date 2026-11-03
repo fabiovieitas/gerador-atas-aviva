@@ -26,6 +26,45 @@ const QUICK_QUESTIONS = [
   "Como proceder em caso de vacância da diretoria?",
 ];
 
+function extractRelevantStatuteContext(fullText: string | null | undefined, query: string, maxLen = 3500): string {
+  if (!fullText) return "";
+  if (fullText.length <= maxLen) return fullText;
+
+  const queryWords = query
+    .toLowerCase()
+    .replace(/[^\w\s]/g, "")
+    .split(/\s+/)
+    .filter((w) => w.length > 2);
+
+  const paragraphs = fullText.split(/\n\s*\n/);
+  const scored = paragraphs.map((p) => {
+    const pLower = p.toLowerCase();
+    let score = 0;
+    queryWords.forEach((w) => {
+      if (pLower.includes(w)) score += 3;
+    });
+    if (pLower.includes("art.") || pLower.includes("artigo")) score += 1;
+    if (pLower.includes("quórum") || pLower.includes("quorum")) score += 2;
+    if (pLower.includes("assembleia") || pLower.includes("reforma")) score += 2;
+    return { p, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  const selected: string[] = [];
+  let curLen = 0;
+  for (const item of scored) {
+    if (curLen + item.p.length > maxLen) {
+      if (selected.length === 0) {
+        selected.push(item.p.slice(0, maxLen));
+      }
+      break;
+    }
+    selected.push(item.p);
+    curLen += item.p.length + 2;
+  }
+  return selected.join("\n\n");
+}
+
 export function LegalAssistantModal({ estatutoTexto, regimentoTexto, churchNome }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -41,9 +80,12 @@ export function LegalAssistantModal({ estatutoTexto, regimentoTexto, churchNome 
     setQuery("");
     setLoading(true);
 
+    const estatutoCtx = extractRelevantStatuteContext(estatutoTexto, q, 3500);
+    const regimentoCtx = extractRelevantStatuteContext(regimentoTexto, q, 2500);
+
     const baseLegal = [
-      estatutoTexto ? `ESTATUTO SOCIAL:\n${estatutoTexto.slice(0, 20000)}` : "",
-      regimentoTexto ? `REGIMENTO INTERNO:\n${regimentoTexto.slice(0, 15000)}` : "",
+      estatutoCtx ? `ESTATUTO SOCIAL:\n${estatutoCtx}` : "",
+      regimentoCtx ? `REGIMENTO INTERNO:\n${regimentoCtx}` : "",
     ].filter(Boolean).join("\n\n---\n\n");
 
     const systemPrompt = `Você é o Consultor Jurídico e Canônico Oficial da Igreja Evangélica AVIVA (${churchNome || "Igreja Local"}).
@@ -76,6 +118,7 @@ ${baseLegal || "Estatuto Social padrão da Igreja Evangélica AVIVA (Art. 53: Qu
             ...newMessages.slice(-4),
           ],
           temperature: 0.2,
+          max_tokens: 600,
         }),
       });
 

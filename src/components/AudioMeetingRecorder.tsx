@@ -544,7 +544,7 @@ Regras para tags: Extraia as palavras-chave centrais debatidas na reunião, tais
 
 TRANSCRIÇÃO DO ÁUDIO:
 """
-${transcript}
+${transcript.slice(0, 6000)}
 """`;
 
     let parsed: any = null;
@@ -565,6 +565,7 @@ ${transcript}
             { role: "user", content: prompt },
           ],
           temperature: 0.1,
+          max_tokens: 700,
         }),
       });
 
