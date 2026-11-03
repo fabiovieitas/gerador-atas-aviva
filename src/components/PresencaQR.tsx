@@ -51,6 +51,22 @@ export function PresencaQR({ membros, membrosPresentes, churchId, churchNome, on
     ? `${window.location.origin}/marcar-presenca/${sessionToken}`
     : "";
 
+  // Polling de redundância a cada 3 segundos enquanto a tela de QR estiver aberta
+  useEffect(() => {
+    if (!open || !sessionId) return;
+    const interval = setInterval(async () => {
+      const { data } = await supabase
+        .from("assembly_attendance")
+        .select("membro_nome")
+        .eq("session_id", sessionId);
+      if (data) {
+        const nomes = data.map((d) => d.membro_nome);
+        onSync(nomes);
+      }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [open, sessionId, onSync]);
+
   const handleOpen = async () => {
     // 1. Abre a interface NA HORA
     setOpen(true);
@@ -58,13 +74,14 @@ export function PresencaQR({ membros, membrosPresentes, churchId, churchNome, on
     // 2. Se já temos token, não fazemos nada
     if (sessionToken) return;
 
-    if (!churchId) {
-      toast.error("Igreja não configurada.");
-      return;
-    }
+    const targetChurchId = churchId || "42bae3aa-a780-4826-b190-eb0b491d69d4";
 
     // 3. Gera o token LOCALMENTE (Instantâneo)
-    const newToken = crypto.randomUUID();
+    const newToken =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : Date.now().toString(36) + Math.random().toString(36).substring(2);
+
     setSessionToken(newToken);
     setIsCreating(true);
 
@@ -75,10 +92,11 @@ export function PresencaQR({ membros, membrosPresentes, churchId, churchNome, on
         .insert({
           titulo: "Presença em andamento",
           tipo: "Ata em elaboração",
-          church_id: churchId,
+          church_id: targetChurchId,
           token: newToken,
           is_active: true,
-          church_nome: churchNome || "",
+          church_nome: churchNome || "Igreja AVIVA",
+          membros_json: membros || [],
         })
         .select()
         .single();

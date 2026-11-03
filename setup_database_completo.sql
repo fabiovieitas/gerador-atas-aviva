@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS public.churches (
 ALTER TABLE public.churches 
   ADD COLUMN IF NOT EXISTS estatuto_texto TEXT,
   ADD COLUMN IF NOT EXISTS regimento_texto TEXT,
+  ADD COLUMN IF NOT EXISTS estatuto_pdf_url TEXT,
+  ADD COLUMN IF NOT EXISTS regimento_pdf_url TEXT,
   ADD COLUMN IF NOT EXISTS gemini_api_key TEXT,
   ADD COLUMN IF NOT EXISTS logo_url TEXT;
 
@@ -92,6 +94,7 @@ CREATE TABLE IF NOT EXISTS public.atas (
 
 ALTER TABLE public.atas 
   ADD COLUMN IF NOT EXISTS updated_by UUID REFERENCES auth.users(id),
+  ADD COLUMN IF NOT EXISTS tags TEXT[] DEFAULT '{}',
   ADD COLUMN IF NOT EXISTS foto_assinatura_url TEXT;
 
 -- 4. CRIAÇÃO DAS TABELAS DO SISTEMA
@@ -135,6 +138,7 @@ CREATE TABLE IF NOT EXISTS public.assembly_sessions (
   token TEXT UNIQUE NOT NULL,
   is_active BOOLEAN DEFAULT true,
   church_nome TEXT,
+  membros_json JSONB DEFAULT '[]'::jsonb,
   fotos_assinatura_urls TEXT[] DEFAULT '{}',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
@@ -292,7 +296,8 @@ DROP POLICY IF EXISTS "Invites: gestao admin" ON public.invites;
 CREATE POLICY "Invites: gestao admin" ON public.invites FOR ALL TO authenticated USING (public.is_admin_or_master(auth.uid())) WITH CHECK (public.is_admin_or_master(auth.uid()));
 
 DROP POLICY IF EXISTS "Membros: leitura igreja" ON public.membros;
-CREATE POLICY "Membros: leitura igreja" ON public.membros FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Membros: leitura geral" ON public.membros;
+CREATE POLICY "Membros: leitura geral" ON public.membros FOR SELECT USING (true);
 DROP POLICY IF EXISTS "Membros: escrita admin" ON public.membros;
 CREATE POLICY "Membros: escrita admin" ON public.membros FOR ALL TO authenticated USING (public.is_admin_or_master(auth.uid())) WITH CHECK (public.is_admin_or_master(auth.uid()));
 

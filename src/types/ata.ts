@@ -52,6 +52,7 @@ export interface AtaFormData {
   deliberacoes: Deliberacao[];
   nomeSecretario: string;
   fotosAssinaturaUrls?: string[];
+  tags?: string[];
 }
 
 export interface AtaHistorico {
@@ -64,4 +65,5 @@ export interface AtaHistorico {
   ataTexto: string;
   geradoEm: string;
   fotosAssinaturaUrls?: string[];
+  tags?: string[];
 }

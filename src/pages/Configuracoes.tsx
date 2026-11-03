@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useAtaStore } from "@/hooks/useAtaStore";
@@ -15,7 +15,12 @@ import {
   AlertTriangle,
   Scale,
   Save,
-  Loader2
+  Loader2,
+  FileText,
+  Download,
+  Upload,
+  CheckCircle2,
+  Trash2
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -63,6 +68,11 @@ export function ConfiguracoesPage({ store }: Props) {
   // Estatuto state
   const [estatutoTexto, setEstatutoTexto] = useState(store.churchInfo?.estatuto_texto || "");
   const [regimentoTexto, setRegimentoTexto] = useState(store.churchInfo?.regimento_texto || "");
+  const [estatutoPdfUrl, setEstatutoPdfUrl] = useState(store.churchInfo?.estatuto_pdf_url || "");
+  const [regimentoPdfUrl, setRegimentoPdfUrl] = useState(store.churchInfo?.regimento_pdf_url || "");
+  const [uploadingPdf, setUploadingPdf] = useState<"estatuto" | "regimento" | null>(null);
+  const estatutoFileRef = useRef<HTMLInputElement>(null);
+  const regimentoFileRef = useRef<HTMLInputElement>(null);
   const [geminiKey, setGeminiKey] = useState(store.churchInfo?.gemini_api_key || "");
   const [savingEstatuto, setSavingEstatuto] = useState(false);
 
@@ -71,11 +81,13 @@ export function ConfiguracoesPage({ store }: Props) {
       if (store.churchInfo) {
         setEstatutoTexto(store.churchInfo.estatuto_texto || "");
         setRegimentoTexto(store.churchInfo.regimento_texto || "");
+        setEstatutoPdfUrl(store.churchInfo.estatuto_pdf_url || "");
+        setRegimentoPdfUrl(store.churchInfo.regimento_pdf_url || "");
       } else if (isAdmin || isMaster) {
         // Se estiver no modo "Todas as Unidades", busca de qualquer igreja para preencher o campo
         const { data } = await supabase
           .from('churches')
-          .select('estatuto_texto, regimento_texto')
+          .select('estatuto_texto, regimento_texto, estatuto_pdf_url, regimento_pdf_url')
           .not('estatuto_texto', 'is', null)
           .limit(1)
           .maybeSingle();
@@ -83,6 +95,8 @@ export function ConfiguracoesPage({ store }: Props) {
         if (data) {
           setEstatutoTexto(data.estatuto_texto || "");
           setRegimentoTexto(data.regimento_texto || "");
+          setEstatutoPdfUrl(data.estatuto_pdf_url || "");
+          setRegimentoPdfUrl(data.regimento_pdf_url || "");
         }
       }
       
@@ -200,6 +214,76 @@ export function ConfiguracoesPage({ store }: Props) {
     window.location.reload();
   };
 
+  const handleUploadPdf = async (type: "estatuto" | "regimento", e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      toast.error("Por favor, selecione um arquivo em formato PDF.");
+      return;
+    }
+
+    setUploadingPdf(type);
+    toast.info(`Enviando PDF do ${type === "estatuto" ? "Estatuto Social" : "Regimento Interno"} para o repositório...`);
+
+    try {
+      const fileName = `base_legal/${type}_${Date.now()}.pdf`;
+      const { error: uploadErr } = await supabase.storage
+        .from("official_docs")
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadErr) throw uploadErr;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("official_docs")
+        .getPublicUrl(fileName);
+
+      if (type === "estatuto") {
+        setEstatutoPdfUrl(publicUrl);
+      } else {
+        setRegimentoPdfUrl(publicUrl);
+      }
+
+      // Sincroniza imediatamente com todas as igrejas no banco
+      const fieldToUpdate = type === "estatuto" ? "estatuto_pdf_url" : "regimento_pdf_url";
+      await supabase
+        .from("churches")
+        .update({ [fieldToUpdate]: publicUrl })
+        .not("id", "is", null);
+
+      toast.success(`PDF do ${type === "estatuto" ? "Estatuto" : "Regimento"} salvo com sucesso no repositório!`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Erro no upload do PDF: " + (err.message || "Tente novamente"));
+    } finally {
+      setUploadingPdf(null);
+      if (e.target) e.target.value = "";
+    }
+  };
+
+  const handleRemovePdf = async (type: "estatuto" | "regimento") => {
+    const confirmed = window.confirm(`Deseja remover o PDF do ${type === "estatuto" ? "Estatuto" : "Regimento"} do repositório?`);
+    if (!confirmed) return;
+
+    try {
+      if (type === "estatuto") {
+        setEstatutoPdfUrl("");
+      } else {
+        setRegimentoPdfUrl("");
+      }
+
+      const fieldToUpdate = type === "estatuto" ? "estatuto_pdf_url" : "regimento_pdf_url";
+      await supabase
+        .from("churches")
+        .update({ [fieldToUpdate]: null })
+        .not("id", "is", null);
+
+      toast.success(`PDF do ${type === "estatuto" ? "Estatuto" : "Regimento"} removido do repositório.`);
+    } catch (err: any) {
+      toast.error("Erro ao remover: " + err.message);
+    }
+  };
+
   const handleSaveEstatuto = async () => {
     setSavingEstatuto(true);
     try {
@@ -210,7 +294,9 @@ export function ConfiguracoesPage({ store }: Props) {
         .from('churches')
         .update({ 
           estatuto_texto: estatutoTexto,
-          regimento_texto: regimentoTexto
+          regimento_texto: regimentoTexto,
+          estatuto_pdf_url: estatutoPdfUrl,
+          regimento_pdf_url: regimentoPdfUrl
         })
         .not('id', 'is', null) // Isso garante que o update pegue todas as linhas
         .select();
@@ -425,23 +511,189 @@ export function ConfiguracoesPage({ store }: Props) {
               </div>
 
               <div className="grid md:grid-cols-2 gap-6">
+                {/* ESTATUTO SOCIAL */}
                 <div className="space-y-3">
-                  <Label className="text-base font-bold text-indigo-900">Estatuto Social</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-base font-bold text-indigo-900 dark:text-indigo-300">
+                      Estatuto Social Oficial
+                    </Label>
+                    <input
+                      type="file"
+                      ref={estatutoFileRef}
+                      onChange={(e) => handleUploadPdf("estatuto", e)}
+                      accept="application/pdf"
+                      className="hidden"
+                    />
+                  </div>
+
+                  {/* Card do Repositório do Estatuto */}
+                  <div className="p-3.5 rounded-xl border bg-indigo-50/60 dark:bg-indigo-950/20 border-indigo-200/60 dark:border-indigo-800 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-xs font-semibold text-indigo-900 dark:text-indigo-200">
+                        <FileText className="w-4 h-4 text-indigo-600" />
+                        Repositório Oficial do PDF
+                      </div>
+                      {estatutoPdfUrl && (
+                        <span className="text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" /> PDF Disponível
+                        </span>
+                      )}
+                    </div>
+
+                    {estatutoPdfUrl ? (
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        <a
+                          href={estatutoPdfUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          download="Estatuto_Social_Oficial_AVIVA.pdf"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition-colors"
+                        >
+                          <Download className="w-3.5 h-3.5" /> Baixar / Visualizar PDF
+                        </a>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => estatutoFileRef.current?.click()}
+                          disabled={uploadingPdf === "estatuto"}
+                          className="gap-1.5 text-xs text-indigo-700 dark:text-indigo-300 border-indigo-300 hover:bg-indigo-100/50"
+                        >
+                          {uploadingPdf === "estatuto" ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                          Substituir PDF
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleRemovePdf("estatuto")}
+                          className="text-xs text-destructive hover:bg-destructive/10"
+                          title="Remover PDF"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-1">
+                        <p className="text-xs text-muted-foreground">
+                          Nenhum PDF cadastrado. Anexe o Estatuto registrado em cartório.
+                        </p>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => estatutoFileRef.current?.click()}
+                          disabled={uploadingPdf === "estatuto"}
+                          className="gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white shrink-0"
+                        >
+                          {uploadingPdf === "estatuto" ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Upload className="w-3.5 h-3.5" />
+                          )}
+                          Anexar PDF Oficial
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
                   <textarea
                     value={estatutoTexto}
                     onChange={(e) => setEstatutoTexto(e.target.value)}
-                    className="w-full min-h-[400px] p-4 rounded-xl border border-input bg-background resize-y focus:outline-none focus:ring-2 focus:ring-ring"
-                    placeholder="Cole aqui o Estatuto Social..."
+                    className="w-full min-h-[350px] p-4 rounded-xl border border-input bg-background resize-y focus:outline-none focus:ring-2 focus:ring-ring font-mono text-xs leading-relaxed"
+                    placeholder="Cole aqui o texto do Estatuto Social para indexação e IA..."
                   />
                 </div>
 
+                {/* REGIMENTO INTERNO */}
                 <div className="space-y-3">
-                  <Label className="text-base font-bold text-violet-900">Regimento Interno</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-base font-bold text-violet-900 dark:text-violet-300">
+                      Regimento Interno Oficial
+                    </Label>
+                    <input
+                      type="file"
+                      ref={regimentoFileRef}
+                      onChange={(e) => handleUploadPdf("regimento", e)}
+                      accept="application/pdf"
+                      className="hidden"
+                    />
+                  </div>
+
+                  {/* Card do Repositório do Regimento */}
+                  <div className="p-3.5 rounded-xl border bg-violet-50/60 dark:bg-violet-950/20 border-violet-200/60 dark:border-violet-800 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-xs font-semibold text-violet-900 dark:text-violet-200">
+                        <FileText className="w-4 h-4 text-violet-600" />
+                        Repositório Oficial do PDF
+                      </div>
+                      {regimentoPdfUrl && (
+                        <span className="text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" /> PDF Disponível
+                        </span>
+                      )}
+                    </div>
+
+                    {regimentoPdfUrl ? (
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        <a
+                          href={regimentoPdfUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          download="Regimento_Interno_Oficial_AVIVA.pdf"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold shadow-sm transition-colors"
+                        >
+                          <Download className="w-3.5 h-3.5" /> Baixar / Visualizar PDF
+                        </a>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => regimentoFileRef.current?.click()}
+                          disabled={uploadingPdf === "regimento"}
+                          className="gap-1.5 text-xs text-violet-700 dark:text-violet-300 border-violet-300 hover:bg-violet-100/50"
+                        >
+                          {uploadingPdf === "regimento" ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                          Substituir PDF
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleRemovePdf("regimento")}
+                          className="text-xs text-destructive hover:bg-destructive/10"
+                          title="Remover PDF"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-1">
+                        <p className="text-xs text-muted-foreground">
+                          Nenhum PDF cadastrado. Anexe o Regimento Interno aprovado pela igreja.
+                        </p>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => regimentoFileRef.current?.click()}
+                          disabled={uploadingPdf === "regimento"}
+                          className="gap-1.5 text-xs bg-violet-600 hover:bg-violet-700 text-white shrink-0"
+                        >
+                          {uploadingPdf === "regimento" ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Upload className="w-3.5 h-3.5" />
+                          )}
+                          Anexar PDF Oficial
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
                   <textarea
                     value={regimentoTexto}
                     onChange={(e) => setRegimentoTexto(e.target.value)}
-                    className="w-full min-h-[400px] p-4 rounded-xl border border-input bg-background resize-y focus:outline-none focus:ring-2 focus:ring-ring"
-                    placeholder="Cole aqui o Regimento Interno..."
+                    className="w-full min-h-[350px] p-4 rounded-xl border border-input bg-background resize-y focus:outline-none focus:ring-2 focus:ring-ring font-mono text-xs leading-relaxed"
+                    placeholder="Cole aqui o texto do Regimento Interno..."
                   />
                 </div>
               </div>

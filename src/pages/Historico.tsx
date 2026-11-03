@@ -285,8 +285,9 @@ const gerarLivroAtas = async () => {
       const church = (a.church_nome || "").toLowerCase();
       const autor = (a.autor_nome || "").toLowerCase();
       
-      // Procura em TUDO: título, conteúdo, igreja, autor, data e até nos membros presentes (no JSON)
+      // Procura em TUDO: título, conteúdo, igreja, autor, data, membros e tags/palavras-chave
       const membros = (a.dados_json?.membrosPresentes || []).join(", ").toLowerCase();
+      const tags = (a.dados_json?.tags || (a as any).tags || []).join(" ").toLowerCase();
 
       return (
         titulo.includes(termo) ||
@@ -294,7 +295,8 @@ const gerarLivroAtas = async () => {
         church.includes(termo) ||
         autor.includes(termo) ||
         dataFormatada.includes(termo) ||
-        membros.includes(termo)
+        membros.includes(termo) ||
+        tags.includes(termo)
       );
     });
   }, [atas, busca, churchFilter]);
@@ -401,6 +403,23 @@ const gerarLivroAtas = async () => {
                       </div>
                     )}
                   </div>
+
+                  {/* Tags / Palavras-chave da Ata */}
+                  {(((ata.dados_json?.tags || (ata as any).tags) as string[]) || []).length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1.5">
+                      {((ata.dados_json?.tags || (ata as any).tags) as string[]).map((t: string, i: number) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setBusca(t)}
+                          title={`Clique para filtrar por #${t}`}
+                          className="cursor-pointer text-[10px] font-semibold bg-primary/10 hover:bg-primary/20 text-primary border border-primary/25 rounded-full px-2 py-0.5 transition-all shadow-2xs"
+                        >
+                          #{t}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
               

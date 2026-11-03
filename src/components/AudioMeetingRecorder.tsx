@@ -28,6 +28,23 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
+export const detectHeuristicTags = (text: string): string[] => {
+  if (!text) return [];
+  const lower = text.toLowerCase();
+  const detected: string[] = [];
+  if (/deslig|desvincul|afast|desfili|exclus/i.test(lower)) detected.push("Desligamento");
+  if (/financ|caixa|dizim|ofert|saldo|banc|tesour|gasto|despesa|receita|balanc/i.test(lower)) detected.push("Financeiro");
+  if (/retir|acamp|vigil|congresso/i.test(lower)) detected.push("Retiro");
+  if (/reform|obra|pintur|construc|manuten|reparo|telhad/i.test(lower)) detected.push("Reforma");
+  if (/batism|imers|novos convert/i.test(lower)) detected.push("Batismo");
+  if (/elei|votac|candidat|posse|mandat/i.test(lower)) detected.push("Eleição");
+  if (/disciplin|correc|advert/i.test(lower)) detected.push("Disciplina");
+  if (/patrimon|veicul|imovel|terren|compra|venda/i.test(lower)) detected.push("Patrimônio");
+  if (/evangelis|misso|campo/i.test(lower)) detected.push("Missões");
+  if (/pastor|diretor|lideranc|presbiter|diacon/i.test(lower)) detected.push("Pastoral");
+  return detected;
+};
+
 interface Props {
   churchId?: string;
   onApplyToAta: (dadosExtraidos: {
@@ -35,6 +52,7 @@ interface Props {
     deliberacoes?: string[];
     palavraInicial?: string;
     textoCorrido?: string;
+    tags?: string[];
   }) => void;
 }
 
@@ -58,10 +76,15 @@ export function AudioMeetingRecorder({ churchId, onApplyToAta }: Props) {
   const [showGroqModal, setShowGroqModal] = useState(false);
 
   const recognitionRef = useRef<any>(null);
+  const isRecordingRef = useRef(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioStreamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    isRecordingRef.current = isRecording;
+  }, [isRecording]);
 
   // Cronômetro da gravação
   useEffect(() => {
@@ -80,55 +103,66 @@ export function AudioMeetingRecorder({ churchId, onApplyToAta }: Props) {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  // Inicializa o Web Speech API (transcrição ao vivo)
+  // Inicializa o Web Speech API uma única vez
   useEffect(() => {
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
-    if (SpeechRecognition) {
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = "pt-BR";
-
-      recognition.onresult = (event: any) => {
-        let currentInterim = "";
-        let currentFinal = "";
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const item = event.results[i];
-          if (item.isFinal) {
-            currentFinal += item[0].transcript + " ";
-          } else {
-            currentInterim += item[0].transcript;
-          }
-        }
-
-        if (currentFinal) {
-          setTranscript((prev) => prev + currentFinal);
-        }
-        setInterimTranscript(currentInterim);
-      };
-
-      recognition.onerror = (event: any) => {
-        console.error("Erro no reconhecimento de voz:", event.error);
-        if (event.error === "not-allowed") {
-          toast.error("Permissão de microfone negada no navegador.");
-          setIsRecording(false);
-        }
-      };
-
-      recognition.onend = () => {
-        if (isRecording) {
-          try {
-            recognition.start();
-          } catch {}
-        }
-      };
-
-      recognitionRef.current = recognition;
+    if (!SpeechRecognition) {
+      console.warn("SpeechRecognition não suportado neste navegador.");
+      return;
     }
-  }, [isRecording]);
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "pt-BR";
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = (event: any) => {
+      let currentInterim = "";
+      let currentFinal = "";
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const item = event.results[i];
+        if (item.isFinal) {
+          currentFinal += item[0].transcript + " ";
+        } else {
+          currentInterim += item[0].transcript;
+        }
+      }
+
+      if (currentFinal) {
+        setTranscript((prev) => (prev ? prev + " " : "") + currentFinal.trim());
+      }
+      setInterimTranscript(currentInterim);
+    };
+
+    recognition.onerror = (event: any) => {
+      console.warn("Reconhecimento de fala:", event.error);
+      if (event.error === "not-allowed") {
+        toast.error("Permissão de microfone negada no navegador.");
+        isRecordingRef.current = false;
+        setIsRecording(false);
+      }
+    };
+
+    recognition.onend = () => {
+      if (isRecordingRef.current) {
+        try {
+          recognition.start();
+        } catch {}
+      }
+    };
+
+    recognitionRef.current = recognition;
+
+    return () => {
+      try {
+        recognition.stop();
+      } catch {}
+    };
+  }, []);
 
   // Iniciar gravação física de áudio (MediaRecorder)
   const startAudioRecording = async () => {
@@ -187,14 +221,16 @@ export function AudioMeetingRecorder({ churchId, onApplyToAta }: Props) {
   const toggleRecording = async () => {
     if (isRecording) {
       // Finalizar gravação
+      isRecordingRef.current = false;
+      setIsRecording(false);
+      setInterimTranscript("");
+
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
         } catch {}
       }
       stopAudioRecording();
-      setIsRecording(false);
-      setInterimTranscript("");
       toast.info("Gravação de áudio e voz finalizada!");
     } else {
       // Iniciar gravação
@@ -202,19 +238,25 @@ export function AudioMeetingRecorder({ churchId, onApplyToAta }: Props) {
       setRecordedAudioUrl(null);
       setRecordedAudioBlob(null);
 
-      // 1. Inicia gravação real do áudio para arquivamento
-      await startAudioRecording();
+      isRecordingRef.current = true;
+      setIsRecording(true);
 
-      // 2. Inicia transcrição de fala em tempo real
+      // 1. Inicia transcrição de fala nativa primeiro
       if (recognitionRef.current) {
         try {
           recognitionRef.current.start();
         } catch (err) {
-          console.error(err);
+          console.warn("SpeechRecognition start erro:", err);
         }
       }
 
-      setIsRecording(true);
+      // 2. Inicia gravação física de mídia (MediaRecorder) para arquivo e nuvem
+      try {
+        await startAudioRecording();
+      } catch (err) {
+        console.warn("MediaRecorder erro:", err);
+      }
+
       toast.success("Gravando áudio da assembleia e transcrevendo falas...");
     }
   };
@@ -376,8 +418,16 @@ Retorne EXCLUSIVAMENTE um JSON rigoroso com a seguinte estrutura:
     "Texto formal da 1ª deliberação aprovada (ex: Aprovou-se por unanimidade a prestação de contas...)",
     "Texto formal da 2ª deliberação..."
   ],
+  "tags": [
+    "desligamento",
+    "financeiro",
+    "retiro",
+    "reforma"
+  ],
   "textoParagrafo": "Parágrafo formal completo e corrido dos acontecimentos para constar no corpo da ata."
 }
+
+Regras para tags: Extraia as palavras-chave centrais debatidas na reunião, tais como 'desligamento' (se foi tratado desligamento ou disciplina de membro), 'financeiro' (se tratou de contas, dízimos, tesouraria), 'retiro' (se tratou de retiro de jovens ou acampamento), 'reforma' (se tratou de reformas, pintura ou obras), 'batismo', 'eleição', 'patrimônio', 'disciplina', 'pastoral'.
 
 TRANSCRIÇÃO DO ÁUDIO:
 """
@@ -488,6 +538,7 @@ ${transcript}
         .filter((s) => /aprov|decid|acord|resolv|eleit|defin|autoriz|unanim/i.test(s))
         .map((s) => `Aprovou-se: ${s}`);
 
+      const heuristicTags = detectHeuristicTags(transcript);
       parsed = {
         assuntosPrincipais: resumo.slice(0, 200),
         palavraInicial: "Palavra pastoral de edificação e oração inicial ministrada na assembleia.",
@@ -495,11 +546,15 @@ ${transcript}
           deliberacoesEncontradas.length > 0
             ? deliberacoesEncontradas
             : ["Apreciação e deliberações gerais aprovadas conforme pauta e quórum legal."],
+        tags: heuristicTags.length > 0 ? heuristicTags : ["Assembleia Geral"],
         textoParagrafo: transcript.slice(0, 1500),
       };
     }
 
     if (parsed) {
+      if (!parsed.tags || parsed.tags.length === 0) {
+        parsed.tags = detectHeuristicTags(transcript);
+      }
       setAiExtractedData(parsed);
       toast.success("Estrutura da ata gerada com sucesso! Revise e clique em 'Inserir na Ata'.");
     } else {
@@ -511,11 +566,17 @@ ${transcript}
   const handleConfirmApply = () => {
     if (!aiExtractedData) return;
     try {
+      const combinedTags = Array.from(new Set([
+        ...(Array.isArray(aiExtractedData.tags) ? aiExtractedData.tags : []),
+        ...detectHeuristicTags(transcript),
+      ]));
+
       onApplyToAta({
         assuntosPrincipais: aiExtractedData.assuntosPrincipais,
         palavraInicial: aiExtractedData.palavraInicial,
         deliberacoes: Array.isArray(aiExtractedData.deliberacoes) ? aiExtractedData.deliberacoes : [],
         textoCorrido: aiExtractedData.textoParagrafo,
+        tags: combinedTags,
       });
       setIsOpen(false);
       setAiExtractedData(null);
@@ -690,6 +751,21 @@ ${transcript}
                         </span>
                         <span className="leading-snug text-foreground">{delib}</span>
                       </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {aiExtractedData.tags && aiExtractedData.tags.length > 0 && (
+                <div className="space-y-1 text-xs">
+                  <span className="font-bold text-emerald-900 dark:text-emerald-200 uppercase text-[10px]">
+                    Palavras-chave e Tags Identificadas ({aiExtractedData.tags.length}):
+                  </span>
+                  <div className="flex flex-wrap gap-1.5 pt-0.5">
+                    {aiExtractedData.tags.map((tg: string, i: number) => (
+                      <Badge key={i} variant="secondary" className="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700 text-[11px] px-2 py-0.5">
+                        #{tg}
+                      </Badge>
                     ))}
                   </div>
                 </div>

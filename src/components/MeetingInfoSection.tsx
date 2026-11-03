@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Save, Clock, Image as ImageIcon, Upload, X, CheckCircle2, AlertCircle } from "lucide-react";
+import { Save, Clock, Image as ImageIcon, Upload, X, CheckCircle2, AlertCircle, Tag } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { MemberMentionInput } from "@/components/MemberMentionInput";
 import type { AtaFormData, Membro } from "@/types/ata";
@@ -46,6 +46,35 @@ interface Props {
 
 export function MeetingInfoSection({ data, onUpdate, onSaveDefault, membros, membrosPresentes = [] }: Props) {
   const [uploading, setUploading] = useState(false);
+  const [newTagInput, setNewTagInput] = useState("");
+  const PRESET_TAGS = ["Desligamento", "Financeiro", "Retiro", "Reforma", "Batismo", "Eleição", "Patrimônio", "Conselho Fiscal", "Disciplina", "Missões", "Evangelismo", "Pastoral"];
+
+  const currentTags = safeParseArray(data.tags);
+
+  const handleAddTag = (tagToAdd: string) => {
+    const clean = tagToAdd.trim().replace(/^#/, "");
+    if (!clean) return;
+    if (currentTags.map((t) => t.toLowerCase()).includes(clean.toLowerCase())) {
+      toast.info(`Tag #${clean} já adicionada.`);
+      setNewTagInput("");
+      return;
+    }
+    onUpdate("tags", [...currentTags, clean]);
+    setNewTagInput("");
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    onUpdate("tags", currentTags.filter((t) => t !== tagToRemove));
+  };
+
+  const handleTogglePreset = (preset: string) => {
+    if (currentTags.includes(preset)) {
+      handleRemoveTag(preset);
+    } else {
+      handleAddTag(preset);
+    }
+  };
+
   const now = () => new Date().toTimeString().slice(0, 5);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -263,6 +292,94 @@ export function MeetingInfoSection({ data, onUpdate, onSaveDefault, membros, mem
             <Button type="button" variant="outline" size="icon" onClick={() => onSaveDefault('assuntosPrincipais', data.assuntosPrincipais)} title="Salvar como padrão">
               <Save className="w-3.5 h-3.5" />
             </Button>
+          </div>
+        </div>
+
+        {/* Palavras-chave / Tags da Ata */}
+        <div className="sm:col-span-2 p-3.5 rounded-xl border bg-muted/30 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+              <Tag className="w-3.5 h-3.5 text-primary" />
+              Palavras-chave e Temas da Ata
+            </Label>
+            <span className="text-[11px] text-muted-foreground font-mono">
+              {currentTags.length} tema(s)
+            </span>
+          </div>
+
+          {/* Tags ativas */}
+          <div className="flex flex-wrap items-center gap-1.5 min-h-[32px]">
+            {currentTags.map((tag, idx) => (
+              <span
+                key={idx}
+                className="inline-flex items-center gap-1 text-xs font-semibold bg-primary/10 text-primary border border-primary/25 px-2.5 py-1 rounded-full shadow-xs"
+              >
+                #{tag}
+                <button
+                  type="button"
+                  onClick={() => handleRemoveTag(tag)}
+                  className="hover:text-destructive hover:bg-destructive/10 rounded-full p-0.5 ml-0.5 transition-colors"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            ))}
+            {currentTags.length === 0 && (
+              <span className="text-xs text-muted-foreground italic">
+                Nenhuma palavra-chave selecionada. Escolha uma sugestão rápida ou digite abaixo.
+              </span>
+            )}
+          </div>
+
+          {/* Campo para digitar nova tag */}
+          <div className="flex gap-2">
+            <Input
+              value={newTagInput}
+              onChange={(e) => setNewTagInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleAddTag(newTagInput);
+                }
+              }}
+              placeholder="Digite uma palavra-chave (ex: Desligamento, Reforma) e pressione Enter..."
+              className="text-xs h-8"
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => handleAddTag(newTagInput)}
+              disabled={!newTagInput.trim()}
+              className="text-xs h-8"
+            >
+              + Adicionar
+            </Button>
+          </div>
+
+          {/* Sugestões Rápidas */}
+          <div className="pt-2 border-t border-muted/80">
+            <span className="text-[10px] uppercase font-bold text-muted-foreground mr-2">Sugestões rápidas:</span>
+            <div className="inline-flex flex-wrap gap-1.5 mt-1">
+              {PRESET_TAGS.map((preset) => {
+                const isSelected = currentTags.includes(preset);
+                return (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => handleTogglePreset(preset)}
+                    className={`text-[11px] px-2.5 py-0.5 rounded-md border transition-all ${
+                      isSelected
+                        ? "bg-primary text-primary-foreground border-primary font-bold shadow-xs"
+                        : "bg-background text-muted-foreground border-border hover:bg-muted hover:text-foreground"
+                    }`}
+                  >
+                    {isSelected ? "✓ " : "+ "}
+                    {preset}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 

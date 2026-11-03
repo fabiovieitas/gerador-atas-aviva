@@ -34,6 +34,7 @@ const initialFormData: AtaFormData = {
   aprovadorConselhoFiscal: '', aprovacaoFinanceira: true,
   deliberacoes: [], nomeSecretario: '',
   fotosAssinaturaUrls: [],
+  tags: [],
 };
 
 export function useAtaStore() {
@@ -47,12 +48,15 @@ export function useAtaStore() {
   const [selectedChurchId, setSelectedChurchId] = useState<string | null>(null);
   const [churches, setChurches] = useState<{id: string, nome: string}[]>([]);
   const [churchInfo, setChurchInfo] = useState<{
+    id?: string,
     nome: string, 
     cidade: string, 
     estado: string, 
     logo_url?: string,
     estatuto_texto?: string,
     regimento_texto?: string,
+    estatuto_pdf_url?: string,
+    regimento_pdf_url?: string,
     gemini_api_key?: string
   } | null>(null);
   const [churchError, setChurchError] = useState<string | null>(null);
@@ -114,7 +118,7 @@ export function useAtaStore() {
             if (!churchData.estatuto_texto || !churchData.regimento_texto) {
               const { data: globalLegal } = await supabase
                 .from('churches')
-                .select('estatuto_texto, regimento_texto')
+                .select('estatuto_texto, regimento_texto, estatuto_pdf_url, regimento_pdf_url')
                 .not('estatuto_texto', 'is', null)
                 .limit(1)
                 .maybeSingle();
@@ -122,6 +126,8 @@ export function useAtaStore() {
               if (globalLegal) {
                 churchData.estatuto_texto = churchData.estatuto_texto || globalLegal.estatuto_texto;
                 churchData.regimento_texto = churchData.regimento_texto || globalLegal.regimento_texto;
+                churchData.estatuto_pdf_url = churchData.estatuto_pdf_url || globalLegal.estatuto_pdf_url;
+                churchData.regimento_pdf_url = churchData.regimento_pdf_url || globalLegal.regimento_pdf_url;
               }
             }
             setChurchInfo(churchData as any);
@@ -134,7 +140,7 @@ export function useAtaStore() {
           // Global Mode Fallback
           const { data: globalLegal } = await supabase
             .from('churches')
-            .select('nome, estatuto_texto, regimento_texto, gemini_api_key')
+            .select('nome, estatuto_texto, regimento_texto, estatuto_pdf_url, regimento_pdf_url, gemini_api_key')
             .not('estatuto_texto', 'is', null)
             .limit(1)
             .maybeSingle();
@@ -145,6 +151,8 @@ export function useAtaStore() {
             estado: "",
             estatuto_texto: globalLegal?.estatuto_texto || "",
             regimento_texto: globalLegal?.regimento_texto || "",
+            estatuto_pdf_url: globalLegal?.estatuto_pdf_url || "",
+            regimento_pdf_url: globalLegal?.regimento_pdf_url || "",
             gemini_api_key: globalLegal?.gemini_api_key || ""
           });
         }
@@ -181,6 +189,7 @@ export function useAtaStore() {
             ataTexto: h.conteudo || '',
             geradoEm: h.created_at,
             fotosAssinaturaUrls: (h.dados_json as any)?.fotosAssinaturaUrls || (h.foto_assinatura_url ? [h.foto_assinatura_url] : []),
+            tags: (h.dados_json as any)?.tags || h.tags || [],
             criadoPor: (h as any).creator?.nome || 'Sistema',
             editadoPor: (h as any).editor?.nome || null
           })));
@@ -508,7 +517,8 @@ export function useAtaStore() {
       const ataDataToSave = {
         titulo, 
         conteudo: texto, 
-        dados_json: { ...d, membrosPresentes, areasModificadas: areasModificadas.length > 0 ? areasModificadas : (d as any).areasModificadas },
+        dados_json: { ...d, tags: d.tags || [], membrosPresentes, areasModificadas: areasModificadas.length > 0 ? areasModificadas : (d as any).areasModificadas },
+        tags: d.tags || [],
         church_id: (selectedChurchId && selectedChurchId !== 'all') ? selectedChurchId : profile.church_id,
         created_by: user.id
       };
@@ -519,6 +529,7 @@ export function useAtaStore() {
             titulo,
             conteudo: texto,
             dados_json: ataDataToSave.dados_json,
+            tags: d.tags || [],
             updated_by: user.id // Registra quem está editando
           }).eq('id', currentAtaId)
         : supabase.from('atas').insert({
@@ -558,8 +569,12 @@ export function useAtaStore() {
   }, [formData, membrosPresentes, profile, user, logAudit]);
 
   const carregarDoHistorico = useCallback((ata: AtaHistorico) => {
-    setFormData(ata.dados);
-    setMembrosPresentes(ata.membrosPresentes);
+    setFormData({
+      ...initialFormData,
+      ...ata.dados,
+      tags: ata.tags || ata.dados?.tags || [],
+    });
+    setMembrosPresentes(ata.membrosPresentes || []);
     setAtaGerada(ata.ataTexto);
     setCurrentAtaId(ata.id);
     setOriginalAtaData(ata);
@@ -583,6 +598,7 @@ export function useAtaStore() {
         ataTexto: h.conteudo || '',
         geradoEm: h.created_at,
         fotosAssinaturaUrls: (h.dados_json as any)?.fotosAssinaturaUrls || (h.foto_assinatura_url ? [h.foto_assinatura_url] : []),
+        tags: (h.dados_json as any)?.tags || h.tags || [],
       };
       carregarDoHistorico(ata);
       setOriginalAtaData(ata);

@@ -120,6 +120,7 @@ export function NovaAtaPage({ store }: Props) {
     deliberacoes?: string[];
     palavraInicial?: string;
     textoCorrido?: string;
+    tags?: string[];
   }) => {
     // 1. Atualiza Assuntos Principais
     if (dados.assuntosPrincipais) {
@@ -131,7 +132,14 @@ export function NovaAtaPage({ store }: Props) {
       store.updateField('palavraInicial', dados.palavraInicial);
     }
 
-    // 3. Adiciona as Deliberações identificadas
+    // 3. Atualiza Palavras-chave / Tags identificadas
+    if (dados.tags && dados.tags.length > 0) {
+      const current = store.formData.tags || [];
+      const merged = Array.from(new Set([...current, ...dados.tags]));
+      store.updateField('tags', merged);
+    }
+
+    // 4. Adiciona as Deliberações identificadas
     if (dados.deliberacoes && dados.deliberacoes.length > 0) {
       const novasDelib = dados.deliberacoes.map((itemTexto, idx) => ({
         id: (Date.now() + idx).toString(),
@@ -337,8 +345,8 @@ export function NovaAtaPage({ store }: Props) {
             <PresencaQR
               membros={store.membros.filter(m => m.ativo)}
               membrosPresentes={store.membrosPresentes}
-              churchId={profile?.church_id}
-              churchNome={store.churchInfo?.nome}
+              churchId={profile?.church_id || (store.churchInfo as any)?.id || '42bae3aa-a780-4826-b190-eb0b491d69d4'}
+              churchNome={store.churchInfo?.nome || 'Igreja Evangélica AVIVA'}
               onSync={store.setMembrosPresentes}
               sessionId={store.presenceSessionId}
               setSessionId={store.setPresenceSessionId}
