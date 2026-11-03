@@ -267,14 +267,67 @@ export function MeetingInfoSection({ data, onUpdate, onSaveDefault, membros, mem
       )}
 
       <div className="mt-4 space-y-4">
-        <div>
-          <Label className="form-label">Pastor Dirigente</Label>
-          <div className="flex gap-2">
-            <MemberMentionInput value={data.pastorDirigente} onChange={v => onUpdate('pastorDirigente', v)} membros={membros} placeholder="Digite @ para buscar membros" nameOnly />
-            <Button type="button" variant="outline" size="icon" onClick={() => onSaveDefault('pastorDirigente', data.pastorDirigente)} title="Salvar como padrão">
-              <Save className="w-3.5 h-3.5" />
-            </Button>
+        {/* Dirigente da Assembleia (Regra Institucional) */}
+        <div className="p-3.5 rounded-xl border bg-muted/20 space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+              Dirigente da Assembleia (Regra Institucional)
+            </Label>
+            <span className="text-[11px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-semibold">
+              Regra Oficial Ativa
+            </span>
           </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div>
+              <Label className="text-[11px] text-muted-foreground font-medium">Título Eclesiástico</Label>
+              <select
+                value={data.tituloDirigente || "Presbítero"}
+                onChange={(e) => onUpdate("tituloDirigente", e.target.value)}
+                className="w-full h-9 px-3 rounded-lg border border-input bg-background text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="Presbítero">Presbítero</option>
+                <option value="Pastor">Pastor</option>
+                <option value="Pastora">Pastora</option>
+                <option value="Bispo">Bispo</option>
+                <option value="Apóstolo">Apóstolo</option>
+                <option value="Evangelista">Evangelista</option>
+                <option value="Missionário">Missionário</option>
+                <option value="Diácono">Diácono</option>
+                <option value="Ministro">Ministro</option>
+              </select>
+            </div>
+
+            <div className="sm:col-span-2">
+              <Label className="text-[11px] text-muted-foreground font-medium">Nome do Dirigente</Label>
+              <div className="flex gap-2">
+                <MemberMentionInput
+                  value={data.pastorDirigente}
+                  onChange={(v) => onUpdate("pastorDirigente", v)}
+                  membros={membros}
+                  placeholder="Nome do dirigente da reunião (ex: Fábio Vieitas)"
+                  nameOnly
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    onSaveDefault("tituloDirigente", data.tituloDirigente || "Presbítero");
+                    onSaveDefault("pastorDirigente", data.pastorDirigente);
+                    toast.success("Dirigente e título salvos como regra padrão!");
+                  }}
+                  title="Salvar como regra padrão institucional"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </div>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Definido como regra oficial. Constará automaticamente na abertura, oração final e assinatura da ata.
+          </p>
         </div>
         <div>
           <Label className="form-label">Local da Reunião</Label>

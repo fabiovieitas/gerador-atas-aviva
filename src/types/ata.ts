@@ -31,6 +31,7 @@ export interface AtaFormData {
   horaTermino: string;
   semQuorum: boolean;
   horaSegundaChamada: string;
+  tituloDirigente?: string;
   pastorDirigente: string;
   localReuniao: string;
   assuntosPrincipais: string;

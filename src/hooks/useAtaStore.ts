@@ -24,6 +24,7 @@ const initialFormData: AtaFormData = {
   dataReuniao: '', tipoAssembleia: 'Ordinária',
   horaInicio: '', horaTermino: '',
   semQuorum: false, horaSegundaChamada: '',
+  tituloDirigente: 'Presbítero',
   pastorDirigente: '', localReuniao: '', assuntosPrincipais: '',
   palavraInicial: '', hinoHarpa: '',
   aprovacaoAtaAnterior: 'unanimidade',
@@ -403,9 +404,14 @@ export function useAtaStore() {
     const d = formData;
     const activeMembros = membros.filter(m => m.ativo);
     const getMembro = (nome: string) => activeMembros.find(mb => mb.nome === nome);
+    const tituloOficial = d.tituloDirigente || defaults.tituloDirigente || 'Presbítero';
     
     // Função auxiliar para nomes e cargos
     const refMembro = (nome: string, formal: boolean = false) => {
+      if (nome && (nome === d.pastorDirigente || (defaults.pastorDirigente && nome === defaults.pastorDirigente))) {
+        if (formal) return `${tituloOficial} ${nome}`;
+        return `o ${tituloOficial} ${nome}`;
+      }
       const m = getMembro(nome);
       if (!m) return nome;
       if (formal) {
@@ -628,6 +634,7 @@ export function useAtaStore() {
   const loadDefaults = useCallback(() => {
     setFormData(prev => ({
       ...prev,
+      tituloDirigente: defaults.tituloDirigente || prev.tituloDirigente || 'Presbítero',
       pastorDirigente: defaults.pastorDirigente || prev.pastorDirigente,
       localReuniao: defaults.localReuniao || prev.localReuniao,
       assuntosPrincipais: defaults.assuntosPrincipais || prev.assuntosPrincipais,

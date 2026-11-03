@@ -82,6 +82,9 @@ export function AudioMeetingRecorder({ churchId, onApplyToAta }: Props) {
   const audioChunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Opção para também gravar arquivo de áudio físico (.webm)
+  const [recordRawAudio, setRecordRawAudio] = useState(false);
+
   useEffect(() => {
     isRecordingRef.current = isRecording;
   }, [isRecording]);
@@ -103,15 +106,24 @@ export function AudioMeetingRecorder({ churchId, onApplyToAta }: Props) {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  // Inicializa o Web Speech API uma única vez
-  useEffect(() => {
+  // Factory para criar uma instância limpa do Web Speech API sempre que necessário
+  const createSpeechRecognition = () => {
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      console.warn("SpeechRecognition não suportado neste navegador.");
-      return;
+      toast.error("Reconhecimento de fala nativo não suportado neste navegador. Use Google Chrome ou Edge.");
+      return null;
     }
+
+    try {
+      if (recognitionRef.current) {
+        recognitionRef.current.onend = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.onresult = null;
+        try { recognitionRef.current.abort(); } catch {}
+      }
+    } catch {}
 
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
@@ -133,36 +145,39 @@ export function AudioMeetingRecorder({ churchId, onApplyToAta }: Props) {
       }
 
       if (currentFinal) {
-        setTranscript((prev) => (prev ? prev + " " : "") + currentFinal.trim());
+        setTranscript((prev) => (prev ? prev.trim() + " " : "") + currentFinal.trim());
       }
       setInterimTranscript(currentInterim);
     };
 
     recognition.onerror = (event: any) => {
-      console.warn("Reconhecimento de fala:", event.error);
-      if (event.error === "not-allowed") {
-        toast.error("Permissão de microfone negada no navegador.");
+      console.warn("SpeechRecognition erro:", event.error);
+      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+        toast.error("Permissão de microfone negada. Clique no cadeado da barra de endereço e permita o microfone.");
         isRecordingRef.current = false;
         setIsRecording(false);
+      } else if (event.error === "audio-capture") {
+        toast.error("Nenhum microfone detectado ou microfone ocupado por outro programa.");
       }
     };
 
     recognition.onend = () => {
+      // Se ainda estiver no modo gravando, reinicia com uma nova instância limpa
       if (isRecordingRef.current) {
         try {
-          recognition.start();
-        } catch {}
+          const nextRec = createSpeechRecognition();
+          if (nextRec) {
+            recognitionRef.current = nextRec;
+            nextRec.start();
+          }
+        } catch (e) {
+          console.warn("Erro ao reiniciar recognition:", e);
+        }
       }
     };
 
-    recognitionRef.current = recognition;
-
-    return () => {
-      try {
-        recognition.stop();
-      } catch {}
-    };
-  }, []);
+    return recognition;
+  };
 
   // Iniciar gravação física de áudio (MediaRecorder)
   const startAudioRecording = async () => {
@@ -227,11 +242,13 @@ export function AudioMeetingRecorder({ churchId, onApplyToAta }: Props) {
 
       if (recognitionRef.current) {
         try {
+          recognitionRef.current.onend = null;
           recognitionRef.current.stop();
         } catch {}
+        recognitionRef.current = null;
       }
       stopAudioRecording();
-      toast.info("Gravação de áudio e voz finalizada!");
+      toast.info("Gravação de voz finalizada!");
     } else {
       // Iniciar gravação
       setRecordingSeconds(0);
@@ -241,23 +258,27 @@ export function AudioMeetingRecorder({ churchId, onApplyToAta }: Props) {
       isRecordingRef.current = true;
       setIsRecording(true);
 
-      // 1. Inicia transcrição de fala nativa primeiro
-      if (recognitionRef.current) {
+      // Inicia o reconhecimento de fala em tempo real com uma instância limpa
+      const rec = createSpeechRecognition();
+      if (rec) {
+        recognitionRef.current = rec;
         try {
-          recognitionRef.current.start();
-        } catch (err) {
+          rec.start();
+          toast.success("Ouvindo microfone... Fale agora!");
+        } catch (err: any) {
           console.warn("SpeechRecognition start erro:", err);
+          toast.error("Erro ao iniciar microfone: " + err.message);
         }
       }
 
-      // 2. Inicia gravação física de mídia (MediaRecorder) para arquivo e nuvem
-      try {
-        await startAudioRecording();
-      } catch (err) {
-        console.warn("MediaRecorder erro:", err);
+      // Se a gravação de arquivo físico estiver ativada, inicia em conjunto
+      if (recordRawAudio) {
+        try {
+          await startAudioRecording();
+        } catch (err) {
+          console.warn("MediaRecorder erro:", err);
+        }
       }
-
-      toast.success("Gravando áudio da assembleia e transcrevendo falas...");
     }
   };
 
@@ -664,7 +685,33 @@ ${transcript}
                 <Clock className="w-3 h-3" /> Duração: {formatSeconds(recordingSeconds)}
               </Badge>
             ) : null}
+
+            {/* Opção de gravação de arquivo físico em conjunto */}
+            <div className="w-full flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-purple-200/60 dark:border-purple-900/60 text-xs">
+              <label className="flex items-center gap-2 cursor-pointer text-muted-foreground hover:text-foreground select-none">
+                <input
+                  type="checkbox"
+                  checked={recordRawAudio}
+                  onChange={(e) => setRecordRawAudio(e.target.checked)}
+                  className="rounded border-input text-purple-600 focus:ring-purple-500 h-3.5 w-3.5"
+                />
+                <span>Gravar arquivo de áudio físico (.webm) para arquivamento/testemunho</span>
+              </label>
+              {isRecording && (
+                <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 animate-pulse">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" /> Transcrição em tempo real ativa
+                </span>
+              )}
+            </div>
           </div>
+
+          {/* Feedback de voz ao vivo */}
+          {interimTranscript && (
+            <div className="p-2.5 rounded-lg bg-primary/10 border border-primary/20 text-xs text-primary font-medium flex items-center gap-2 animate-pulse">
+              <span className="w-2 h-2 rounded-full bg-primary shrink-0 animate-ping" />
+              <span>Detectando fala: <em>"{interimTranscript}..."</em></span>
+            </div>
+          )}
 
           {/* Player e Ações do Áudio Gravado (Testemunho e Arquivo) */}
           {recordedAudioUrl && (

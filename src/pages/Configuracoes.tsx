@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import mammoth from "mammoth";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useAtaStore } from "@/hooks/useAtaStore";
@@ -214,55 +215,85 @@ export function ConfiguracoesPage({ store }: Props) {
     window.location.reload();
   };
 
-  const handleUploadPdf = async (type: "estatuto" | "regimento", e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUploadDocument = async (type: "estatuto" | "regimento", e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
-      toast.error("Por favor, selecione um arquivo em formato PDF.");
+    const fileNameLower = file.name.toLowerCase();
+    const isPdf = file.type === "application/pdf" || fileNameLower.endsWith(".pdf");
+    const isDocx = fileNameLower.endsWith(".docx") || file.type.includes("wordprocessingml") || fileNameLower.endsWith(".doc");
+
+    if (!isPdf && !isDocx) {
+      toast.error("Por favor, selecione um arquivo em formato PDF (.pdf) ou Word (.docx).");
       return;
     }
 
     setUploadingPdf(type);
-    toast.info(`Enviando PDF do ${type === "estatuto" ? "Estatuto Social" : "Regimento Interno"} para o repositório...`);
+    const tipoNome = type === "estatuto" ? "Estatuto Social" : "Regimento Interno";
+    toast.info(`Processando documento do ${tipoNome}...`);
 
     try {
-      const fileName = `base_legal/${type}_${Date.now()}.pdf`;
+      // Se for Word DOCX, extrai o texto integralmente via Mammoth
+      if (isDocx) {
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          const result = await mammoth.extractRawText({ arrayBuffer });
+          const extractedText = result.value?.trim();
+
+          if (extractedText) {
+            if (type === "estatuto") {
+              setEstatutoTexto(extractedText);
+            } else {
+              setRegimentoTexto(extractedText);
+            }
+            toast.success(`Texto extraído com sucesso do Word (.docx) e inserido no editor!`);
+          }
+        } catch (readErr: any) {
+          console.warn("Falha na extração de texto do DOCX via mammoth:", readErr);
+        }
+      }
+
+      // Faz upload do arquivo para o bucket do Supabase mantendo a extensão
+      const ext = isDocx ? "docx" : "pdf";
+      const fileName = `base_legal/${type}_${Date.now()}.${ext}`;
       const { error: uploadErr } = await supabase.storage
         .from("official_docs")
         .upload(fileName, file, { upsert: true });
 
-      if (uploadErr) throw uploadErr;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from("official_docs")
-        .getPublicUrl(fileName);
-
-      if (type === "estatuto") {
-        setEstatutoPdfUrl(publicUrl);
+      if (uploadErr) {
+        console.warn("Storage upload notice:", uploadErr.message);
       } else {
-        setRegimentoPdfUrl(publicUrl);
+        const { data: { publicUrl } } = supabase.storage
+          .from("official_docs")
+          .getPublicUrl(fileName);
+
+        if (type === "estatuto") {
+          setEstatutoPdfUrl(publicUrl);
+        } else {
+          setRegimentoPdfUrl(publicUrl);
+        }
+
+        // Sincroniza imediatamente com todas as igrejas no banco
+        const fieldToUpdate = type === "estatuto" ? "estatuto_pdf_url" : "regimento_pdf_url";
+        await supabase
+          .from("churches")
+          .update({ [fieldToUpdate]: publicUrl })
+          .not("id", "is", null);
+
+        toast.success(`Documento do ${tipoNome} salvo no repositório com sucesso!`);
       }
-
-      // Sincroniza imediatamente com todas as igrejas no banco
-      const fieldToUpdate = type === "estatuto" ? "estatuto_pdf_url" : "regimento_pdf_url";
-      await supabase
-        .from("churches")
-        .update({ [fieldToUpdate]: publicUrl })
-        .not("id", "is", null);
-
-      toast.success(`PDF do ${type === "estatuto" ? "Estatuto" : "Regimento"} salvo com sucesso no repositório!`);
     } catch (err: any) {
       console.error(err);
-      toast.error("Erro no upload do PDF: " + (err.message || "Tente novamente"));
+      toast.error("Erro no processamento do arquivo: " + (err.message || "Tente novamente"));
     } finally {
       setUploadingPdf(null);
       if (e.target) e.target.value = "";
     }
   };
 
-  const handleRemovePdf = async (type: "estatuto" | "regimento") => {
-    const confirmed = window.confirm(`Deseja remover o PDF do ${type === "estatuto" ? "Estatuto" : "Regimento"} do repositório?`);
+  const handleRemoveDocument = async (type: "estatuto" | "regimento") => {
+    const tipoNome = type === "estatuto" ? "Estatuto" : "Regimento";
+    const confirmed = window.confirm(`Deseja remover o arquivo do ${tipoNome} do repositório?`);
     if (!confirmed) return;
 
     try {
@@ -278,7 +309,7 @@ export function ConfiguracoesPage({ store }: Props) {
         .update({ [fieldToUpdate]: null })
         .not("id", "is", null);
 
-      toast.success(`PDF do ${type === "estatuto" ? "Estatuto" : "Regimento"} removido do repositório.`);
+      toast.success(`Documento do ${tipoNome} removido do repositório.`);
     } catch (err: any) {
       toast.error("Erro ao remover: " + err.message);
     }
@@ -426,13 +457,47 @@ export function ConfiguracoesPage({ store }: Props) {
             
             <form onSubmit={handleSaveDefaults} className="grid sm:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label htmlFor="def-dirigente">Pastor Dirigente Padrão</Label>
+                <Label htmlFor="def-titulo-dirigente" className="font-semibold text-primary">
+                  Título Eclesiástico do Dirigente
+                </Label>
+                <select
+                  id="def-titulo-dirigente"
+                  value={store.defaults.tituloDirigente || "Presbítero"}
+                  onChange={(e) => store.saveDefault("tituloDirigente", e.target.value)}
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm font-medium focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="Presbítero">Presbítero (Regra Padrão)</option>
+                  <option value="Pastor">Pastor</option>
+                  <option value="Pastora">Pastora</option>
+                  <option value="Bispo">Bispo</option>
+                  <option value="Bispa">Bispa</option>
+                  <option value="Apóstolo">Apóstolo</option>
+                  <option value="Apóstola">Apóstola</option>
+                  <option value="Evangelista">Evangelista</option>
+                  <option value="Missionário">Missionário</option>
+                  <option value="Missionária">Missionária</option>
+                  <option value="Diácono">Diácono</option>
+                  <option value="Diaconisa">Diaconisa</option>
+                  <option value="Ministro">Ministro</option>
+                </select>
+                <p className="text-[11px] text-muted-foreground">
+                  Regra Institucional: define o cargo de quem preside e abre a Assembleia.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="def-dirigente" className="font-semibold text-primary">
+                  Nome do Dirigente Titular Padrão
+                </Label>
                 <Input 
                   id="def-dirigente" 
-                  placeholder="Nome do pastor titular" 
+                  placeholder="Ex: Fábio Vieitas" 
                   value={store.defaults.pastorDirigente || ''} 
                   onChange={(e) => store.saveDefault('pastorDirigente', e.target.value)}
                 />
+                <p className="text-[11px] text-muted-foreground">
+                  Nome oficial adotado em todas as novas atas, abertura, deliberações e assinaturas.
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="def-secretario">Secretário(a) Titular</Label>
@@ -520,8 +585,8 @@ export function ConfiguracoesPage({ store }: Props) {
                     <input
                       type="file"
                       ref={estatutoFileRef}
-                      onChange={(e) => handleUploadPdf("estatuto", e)}
-                      accept="application/pdf"
+                      onChange={(e) => handleUploadDocument("estatuto", e)}
+                      accept=".pdf,.docx,.doc,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword"
                       className="hidden"
                     />
                   </div>
@@ -531,11 +596,12 @@ export function ConfiguracoesPage({ store }: Props) {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 text-xs font-semibold text-indigo-900 dark:text-indigo-200">
                         <FileText className="w-4 h-4 text-indigo-600" />
-                        Repositório Oficial do PDF
+                        Repositório Oficial (PDF / Word .docx)
                       </div>
                       {estatutoPdfUrl && (
                         <span className="text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" /> PDF Disponível
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          {estatutoPdfUrl.toLowerCase().includes(".docx") ? "Documento Word (.docx) Disponível" : "PDF Disponível"}
                         </span>
                       )}
                     </div>
@@ -546,10 +612,10 @@ export function ConfiguracoesPage({ store }: Props) {
                           href={estatutoPdfUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          download="Estatuto_Social_Oficial_AVIVA.pdf"
+                          download={estatutoPdfUrl.toLowerCase().includes(".docx") ? "Estatuto_Social_Oficial_AVIVA.docx" : "Estatuto_Social_Oficial_AVIVA.pdf"}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition-colors"
                         >
-                          <Download className="w-3.5 h-3.5" /> Baixar / Visualizar PDF
+                          <Download className="w-3.5 h-3.5" /> Baixar {estatutoPdfUrl.toLowerCase().includes(".docx") ? "Word (.docx)" : "PDF"}
                         </a>
                         <Button
                           type="button"
@@ -560,15 +626,15 @@ export function ConfiguracoesPage({ store }: Props) {
                           className="gap-1.5 text-xs text-indigo-700 dark:text-indigo-300 border-indigo-300 hover:bg-indigo-100/50"
                         >
                           {uploadingPdf === "estatuto" ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
-                          Substituir PDF
+                          Substituir Arquivo (PDF / DOCX)
                         </Button>
                         <Button
                           type="button"
                           size="sm"
                           variant="ghost"
-                          onClick={() => handleRemovePdf("estatuto")}
+                          onClick={() => handleRemoveDocument("estatuto")}
                           className="text-xs text-destructive hover:bg-destructive/10"
-                          title="Remover PDF"
+                          title="Remover Arquivo"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </Button>
@@ -576,7 +642,7 @@ export function ConfiguracoesPage({ store }: Props) {
                     ) : (
                       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-1">
                         <p className="text-xs text-muted-foreground">
-                          Nenhum PDF cadastrado. Anexe o Estatuto registrado em cartório.
+                          Nenhum arquivo cadastrado. Anexe o Estatuto em PDF ou Word (.docx).
                         </p>
                         <Button
                           type="button"
@@ -590,7 +656,7 @@ export function ConfiguracoesPage({ store }: Props) {
                           ) : (
                             <Upload className="w-3.5 h-3.5" />
                           )}
-                          Anexar PDF Oficial
+                          Anexar Arquivo (PDF / DOCX)
                         </Button>
                       </div>
                     )}
@@ -600,7 +666,7 @@ export function ConfiguracoesPage({ store }: Props) {
                     value={estatutoTexto}
                     onChange={(e) => setEstatutoTexto(e.target.value)}
                     className="w-full min-h-[350px] p-4 rounded-xl border border-input bg-background resize-y focus:outline-none focus:ring-2 focus:ring-ring font-mono text-xs leading-relaxed"
-                    placeholder="Cole aqui o texto do Estatuto Social para indexação e IA..."
+                    placeholder="Cole aqui o texto do Estatuto Social para indexação e IA (ou anexe um arquivo Word .docx acima)..."
                   />
                 </div>
 
@@ -613,8 +679,8 @@ export function ConfiguracoesPage({ store }: Props) {
                     <input
                       type="file"
                       ref={regimentoFileRef}
-                      onChange={(e) => handleUploadPdf("regimento", e)}
-                      accept="application/pdf"
+                      onChange={(e) => handleUploadDocument("regimento", e)}
+                      accept=".pdf,.docx,.doc,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword"
                       className="hidden"
                     />
                   </div>
@@ -624,11 +690,12 @@ export function ConfiguracoesPage({ store }: Props) {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 text-xs font-semibold text-violet-900 dark:text-violet-200">
                         <FileText className="w-4 h-4 text-violet-600" />
-                        Repositório Oficial do PDF
+                        Repositório Oficial (PDF / Word .docx)
                       </div>
                       {regimentoPdfUrl && (
                         <span className="text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" /> PDF Disponível
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          {regimentoPdfUrl.toLowerCase().includes(".docx") ? "Documento Word (.docx) Disponível" : "PDF Disponível"}
                         </span>
                       )}
                     </div>
@@ -639,10 +706,10 @@ export function ConfiguracoesPage({ store }: Props) {
                           href={regimentoPdfUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          download="Regimento_Interno_Oficial_AVIVA.pdf"
+                          download={regimentoPdfUrl.toLowerCase().includes(".docx") ? "Regimento_Interno_Oficial_AVIVA.docx" : "Regimento_Interno_Oficial_AVIVA.pdf"}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold shadow-sm transition-colors"
                         >
-                          <Download className="w-3.5 h-3.5" /> Baixar / Visualizar PDF
+                          <Download className="w-3.5 h-3.5" /> Baixar {regimentoPdfUrl.toLowerCase().includes(".docx") ? "Word (.docx)" : "PDF"}
                         </a>
                         <Button
                           type="button"
@@ -653,15 +720,15 @@ export function ConfiguracoesPage({ store }: Props) {
                           className="gap-1.5 text-xs text-violet-700 dark:text-violet-300 border-violet-300 hover:bg-violet-100/50"
                         >
                           {uploadingPdf === "regimento" ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
-                          Substituir PDF
+                          Substituir Arquivo (PDF / DOCX)
                         </Button>
                         <Button
                           type="button"
                           size="sm"
                           variant="ghost"
-                          onClick={() => handleRemovePdf("regimento")}
+                          onClick={() => handleRemoveDocument("regimento")}
                           className="text-xs text-destructive hover:bg-destructive/10"
-                          title="Remover PDF"
+                          title="Remover Arquivo"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </Button>
@@ -669,7 +736,7 @@ export function ConfiguracoesPage({ store }: Props) {
                     ) : (
                       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-1">
                         <p className="text-xs text-muted-foreground">
-                          Nenhum PDF cadastrado. Anexe o Regimento Interno aprovado pela igreja.
+                          Nenhum arquivo cadastrado. Anexe o Regimento em PDF ou Word (.docx).
                         </p>
                         <Button
                           type="button"
@@ -683,7 +750,7 @@ export function ConfiguracoesPage({ store }: Props) {
                           ) : (
                             <Upload className="w-3.5 h-3.5" />
                           )}
-                          Anexar PDF Oficial
+                          Anexar Arquivo (PDF / DOCX)
                         </Button>
                       </div>
                     )}
@@ -693,7 +760,7 @@ export function ConfiguracoesPage({ store }: Props) {
                     value={regimentoTexto}
                     onChange={(e) => setRegimentoTexto(e.target.value)}
                     className="w-full min-h-[350px] p-4 rounded-xl border border-input bg-background resize-y focus:outline-none focus:ring-2 focus:ring-ring font-mono text-xs leading-relaxed"
-                    placeholder="Cole aqui o texto do Regimento Interno..."
+                    placeholder="Cole aqui o texto do Regimento Interno (ou anexe um arquivo Word .docx acima)..."
                   />
                 </div>
               </div>
