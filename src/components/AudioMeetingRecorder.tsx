@@ -54,6 +54,7 @@ export function AudioMeetingRecorder({ churchId, onApplyToAta }: Props) {
   const [isProcessingAI, setIsProcessingAI] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [groqKey, setGroqKey] = useState<string>(() => localStorage.getItem("aviva_groq_key") || "");
+  const [aiExtractedData, setAiExtractedData] = useState<any>(null);
   const [showGroqModal, setShowGroqModal] = useState(false);
 
   const recognitionRef = useRef<any>(null);
@@ -498,21 +499,29 @@ ${transcript}
       };
     }
 
+    if (parsed) {
+      setAiExtractedData(parsed);
+      toast.success("Estrutura da ata gerada com sucesso! Revise e clique em 'Inserir na Ata'.");
+    } else {
+      toast.error("Não foi possível estruturar a ata.");
+    }
+    setIsProcessingAI(false);
+  };
+
+  const handleConfirmApply = () => {
+    if (!aiExtractedData) return;
     try {
       onApplyToAta({
-        assuntosPrincipais: parsed.assuntosPrincipais,
-        palavraInicial: parsed.palavraInicial,
-        deliberacoes: Array.isArray(parsed.deliberacoes) ? parsed.deliberacoes : [],
-        textoCorrido: parsed.textoParagrafo,
+        assuntosPrincipais: aiExtractedData.assuntosPrincipais,
+        palavraInicial: aiExtractedData.palavraInicial,
+        deliberacoes: Array.isArray(aiExtractedData.deliberacoes) ? aiExtractedData.deliberacoes : [],
+        textoCorrido: aiExtractedData.textoParagrafo,
       });
-
-      toast.success("Dados da reunião estruturados e aplicados na ata com sucesso!");
       setIsOpen(false);
+      setAiExtractedData(null);
     } catch (applyErr: any) {
       console.error(applyErr);
       toast.error("Erro ao aplicar dados na ata.");
-    } finally {
-      setIsProcessingAI(false);
     }
   };
 
@@ -636,6 +645,71 @@ ${transcript}
                   Salvar nos Documentos Oficiais
                 </Button>
               </div>
+            </div>
+          )}
+
+          {/* Card de Pré-visualização da IA */}
+          {aiExtractedData && (
+            <div className="p-4 rounded-xl border-2 border-emerald-500/40 bg-emerald-50/70 dark:bg-emerald-950/30 space-y-3 animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between border-b border-emerald-200 dark:border-emerald-800 pb-2">
+                <div className="flex items-center gap-2 text-sm font-bold text-emerald-800 dark:text-emerald-300">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                  Estrutura Extraída com Sucesso pela IA
+                </div>
+                <Badge className="bg-emerald-600 text-white text-[10px]">Pronto para Inserir</Badge>
+              </div>
+
+              {aiExtractedData.assuntosPrincipais && (
+                <div className="space-y-1 text-xs">
+                  <span className="font-bold text-emerald-900 dark:text-emerald-200 uppercase text-[10px]">Assuntos Principais:</span>
+                  <p className="p-2.5 rounded-lg bg-background border text-xs text-foreground leading-relaxed">
+                    {aiExtractedData.assuntosPrincipais}
+                  </p>
+                </div>
+              )}
+
+              {aiExtractedData.palavraInicial && (
+                <div className="space-y-1 text-xs">
+                  <span className="font-bold text-emerald-900 dark:text-emerald-200 uppercase text-[10px]">Palavra Inicial / Pastoral:</span>
+                  <p className="p-2 rounded-lg bg-background border text-xs text-foreground">
+                    {aiExtractedData.palavraInicial}
+                  </p>
+                </div>
+              )}
+
+              {aiExtractedData.deliberacoes && aiExtractedData.deliberacoes.length > 0 && (
+                <div className="space-y-1 text-xs">
+                  <span className="font-bold text-emerald-900 dark:text-emerald-200 uppercase text-[10px]">
+                    Deliberações Identificadas ({aiExtractedData.deliberacoes.length}):
+                  </span>
+                  <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                    {aiExtractedData.deliberacoes.map((delib: string, i: number) => (
+                      <div key={i} className="p-2 rounded-lg bg-background border text-xs flex items-start gap-2">
+                        <span className="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
+                          {i + 1}
+                        </span>
+                        <span className="leading-snug text-foreground">{delib}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {aiExtractedData.textoParagrafo && (
+                <div className="space-y-1 text-xs">
+                  <span className="font-bold text-emerald-900 dark:text-emerald-200 uppercase text-[10px]">Texto Formal para o Corpo da Ata:</span>
+                  <p className="p-2.5 rounded-lg bg-background border text-[11px] leading-relaxed max-h-28 overflow-y-auto text-foreground font-serif">
+                    {aiExtractedData.textoParagrafo}
+                  </p>
+                </div>
+              )}
+
+              <Button
+                onClick={handleConfirmApply}
+                className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 text-sm shadow-md"
+              >
+                <CheckCircle2 className="w-4 h-4" /> Inserir Esses Dados no Formulário e na Ata Agora
+              </Button>
             </div>
           )}
 

@@ -26,6 +26,7 @@ export function NovaAtaPage({ store }: Props) {
   const location = useLocation();
   const [originalTexto, setOriginalTexto] = useState('');
   const [showDraftDialog, setShowDraftDialog] = useState(false);
+  const [activeTab, setActiveTab] = useState('info');
   const [searchParams] = useSearchParams();
   const ataIdParam = searchParams.get('ata');
 
@@ -118,18 +119,56 @@ export function NovaAtaPage({ store }: Props) {
     assuntosPrincipais?: string;
     deliberacoes?: string[];
     palavraInicial?: string;
+    textoCorrido?: string;
   }) => {
+    // 1. Atualiza Assuntos Principais
     if (dados.assuntosPrincipais) {
       store.updateField('assuntosPrincipais', dados.assuntosPrincipais);
     }
+    
+    // 2. Atualiza Palavra Inicial
     if (dados.palavraInicial) {
       store.updateField('palavraInicial', dados.palavraInicial);
     }
+
+    // 3. Adiciona as Deliberações identificadas
     if (dados.deliberacoes && dados.deliberacoes.length > 0) {
-      dados.deliberacoes.forEach((itemTexto) => {
-        store.updateDeliberacao(Date.now().toString(), { texto: itemTexto });
-      });
+      const novasDelib = dados.deliberacoes.map((itemTexto, idx) => ({
+        id: (Date.now() + idx).toString(),
+        texto: itemTexto
+      }));
+      store.updateField('deliberacoes', [
+        ...store.formData.deliberacoes.filter(d => d.texto?.trim()),
+        ...novasDelib
+      ]);
     }
+
+    // 4. Insere o texto formal no Editor de Ata
+    if (dados.textoCorrido) {
+      const textoAtual = store.ataGerada?.trim() || "";
+      const novoTexto = textoAtual
+        ? `${textoAtual}\n\n[DELIBERAÇÕES E RELATO DA REUNIÃO]\n${dados.textoCorrido}`
+        : dados.textoCorrido;
+      store.setAtaGerada(novoTexto);
+      setOriginalTexto(novoTexto);
+    } else {
+      const texto = store.gerarAta();
+      store.setAtaGerada(texto);
+      setOriginalTexto(texto);
+    }
+
+    // 5. Muda para a aba de Deliberações para mostrar visualmente o resultado
+    setActiveTab('deliberacoes');
+
+    // 6. Rola a tela até o preview da ata
+    setTimeout(() => {
+      const editorElement = document.getElementById('ata-editor-container');
+      if (editorElement) {
+        editorElement.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, 200);
+
+    toast.success("✅ Tópicos, deliberações e texto da ata preenchidos com sucesso!");
   };
 
   const handleLimpar = () => {
@@ -238,7 +277,7 @@ export function NovaAtaPage({ store }: Props) {
       />
 
       {/* Tabs */}
-      <Tabs defaultValue="info" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="w-full grid grid-cols-5 h-auto bg-muted/50 p-1 rounded-xl">
           <TabsTrigger value="info" className="gap-1.5 text-xs sm:text-sm py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all">
             <Info className="w-4 h-4 shrink-0" />
@@ -341,13 +380,15 @@ export function NovaAtaPage({ store }: Props) {
       </Tabs>
 
       {/* Editor / Preview */}
-      <AtaEditor
+      <div id="ata-editor-container">
+        <AtaEditor
         ataTexto={store.ataGerada}
         onUpdate={store.setAtaGerada}
         originalTexto={originalTexto}
         signatureData={signatureData}
         churchInfo={store.churchInfo}
-      />
+        />
+      </div>
     </div>
   );
 }
