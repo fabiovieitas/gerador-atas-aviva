@@ -204,11 +204,11 @@ export function HistoricoPage({ store }: Props) {
       toast.info(`Gerando documento Word: ${fileName}...`);
 
       const dados = ata.dados_json || {};
-      const tituloDirigente = dados.tituloDirigente || store.defaults.tituloDirigente || "Presbítero";
+      const tituloDirigente = dados.tituloDirigente || store.defaults?.tituloDirigente || "Presbítero";
       const signatureData = {
-        secretarioNome: dados.nomeSecretario || store.defaults.nomeSecretario || "Secretário(a)",
+        secretarioNome: dados.nomeSecretario || store.defaults?.nomeSecretario || "Secretário(a)",
         secretarioCargo: "Secretário(a) da Assembleia",
-        presidenteNome: dados.pastorDirigente || store.defaults.pastorDirigente || "Dirigente",
+        presidenteNome: dados.pastorDirigente || store.defaults?.pastorDirigente || "Dirigente",
         presidenteCargo: `${tituloDirigente} - Dirigente da Assembleia`,
       };
 

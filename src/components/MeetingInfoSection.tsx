@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Save, Clock, Image as ImageIcon, Upload, X, CheckCircle2, AlertCircle, Tag } from "lucide-react";
+import { Save, Clock, Image as ImageIcon, Upload, X, CheckCircle2, AlertCircle, Tag, ShieldCheck } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { MemberMentionInput } from "@/components/MemberMentionInput";
 import type { AtaFormData, Membro } from "@/types/ata";

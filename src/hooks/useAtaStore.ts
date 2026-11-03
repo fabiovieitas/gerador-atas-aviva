@@ -404,11 +404,11 @@ export function useAtaStore() {
     const d = formData;
     const activeMembros = membros.filter(m => m.ativo);
     const getMembro = (nome: string) => activeMembros.find(mb => mb.nome === nome);
-    const tituloOficial = d.tituloDirigente || defaults.tituloDirigente || 'Presbítero';
+    const tituloOficial = d.tituloDirigente || defaults?.tituloDirigente || 'Presbítero';
     
     // Função auxiliar para nomes e cargos
     const refMembro = (nome: string, formal: boolean = false) => {
-      if (nome && (nome === d.pastorDirigente || (defaults.pastorDirigente && nome === defaults.pastorDirigente))) {
+      if (nome && (nome === d.pastorDirigente || (defaults?.pastorDirigente && nome === defaults.pastorDirigente))) {
         if (formal) return `${tituloOficial} ${nome}`;
         return `o ${tituloOficial} ${nome}`;
       }
@@ -446,7 +446,7 @@ export function useAtaStore() {
     }
 
     // 1. TÍTULO
-    const cnpj = defaults.cnpj ? ` - CNPJ: ${defaults.cnpj}` : '';
+    const cnpj = defaults?.cnpj ? ` - CNPJ: ${defaults.cnpj}` : '';
     let texto = `ATA DE ASSEMBLEIA ${d.tipoAssembleia.toUpperCase()} DA IGREJA EVANGÉLICA AVIVA, EM ${churchInfo?.cidade.toUpperCase() || '___'}, ${churchInfo?.estado.toUpperCase() || '___'}${cnpj}, NA FORMA ABAIXO:\n\n`;
 
     // 2. ABERTURA
@@ -634,12 +634,12 @@ export function useAtaStore() {
   const loadDefaults = useCallback(() => {
     setFormData(prev => ({
       ...prev,
-      tituloDirigente: defaults.tituloDirigente || prev.tituloDirigente || 'Presbítero',
-      pastorDirigente: defaults.pastorDirigente || prev.pastorDirigente,
-      localReuniao: defaults.localReuniao || prev.localReuniao,
-      assuntosPrincipais: defaults.assuntosPrincipais || prev.assuntosPrincipais,
-      tesoureira: defaults.tesoureira || prev.tesoureira,
-      nomeSecretario: defaults.nomeSecretario || prev.nomeSecretario,
+      tituloDirigente: defaults?.tituloDirigente || prev.tituloDirigente || 'Presbítero',
+      pastorDirigente: defaults?.pastorDirigente || prev.pastorDirigente,
+      localReuniao: defaults?.localReuniao || prev.localReuniao,
+      assuntosPrincipais: defaults?.assuntosPrincipais || prev.assuntosPrincipais,
+      tesoureira: defaults?.tesoureira || prev.tesoureira,
+      nomeSecretario: defaults?.nomeSecretario || prev.nomeSecretario,
     }));
   }, [defaults]);
 

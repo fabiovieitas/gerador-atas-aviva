@@ -90,14 +90,14 @@ export function NovaAtaPage({ store }: Props) {
   const signatureData = useMemo(() => {
     const secMembro = membros.find(m => m.nome === formData.nomeSecretario);
     const presMembro = membros.find(m => m.nome === formData.pastorDirigente);
-    const titulo = formData.tituloDirigente || store.defaults.tituloDirigente || 'Presbítero';
+    const titulo = formData.tituloDirigente || store.defaults?.tituloDirigente || 'Presbítero';
     return {
       secretarioNome: formData.nomeSecretario || '___',
       secretarioCargo: secMembro?.cargo || (secMembro?.genero === 'feminino' ? 'Secretária' : 'Secretário'),
       presidenteNome: formData.pastorDirigente || '___',
       presidenteCargo: `${titulo} - Dirigente da Assembleia`,
     };
-  }, [formData.nomeSecretario, formData.pastorDirigente, formData.tituloDirigente, store.defaults.tituloDirigente, membros]);
+  }, [formData.nomeSecretario, formData.pastorDirigente, formData.tituloDirigente, store.defaults?.tituloDirigente, membros]);
 
   const handleGerar = () => {
     if (!checklistCompleto) {

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'atas-aviva-v1';
+const CACHE_NAME = 'atas-aviva-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

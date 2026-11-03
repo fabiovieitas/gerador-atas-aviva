@@ -204,7 +204,7 @@ export function ConfiguracoesPage({ store }: Props) {
   const handleExport = () => ({
     membros: store.membros,
     historico: store.historico,
-    defaults: store.defaults,
+    defaults: store.defaults || {},
   });
 
   const handleImport = (data: { membros?: any[]; historico?: any[]; defaults?: Record<string, string> }) => {
@@ -416,7 +416,7 @@ export function ConfiguracoesPage({ store }: Props) {
                 <Input 
                   id="cnpj" 
                   placeholder="00.000.000/0000-00" 
-                  value={store.defaults.cnpj || ''} 
+                  value={store.defaults?.cnpj || ''} 
                   onChange={(e) => store.saveDefault('cnpj', e.target.value)}
                 />
               </div>
@@ -435,7 +435,7 @@ export function ConfiguracoesPage({ store }: Props) {
                 <Input 
                   id="endereco" 
                   placeholder="Ex: Rua das Oliveiras, 123, Centro" 
-                  value={store.defaults.localReuniao || ''} 
+                  value={store.defaults?.localReuniao || ''} 
                   onChange={(e) => store.saveDefault('localReuniao', e.target.value)}
                 />
               </div>
@@ -462,7 +462,7 @@ export function ConfiguracoesPage({ store }: Props) {
                 </Label>
                 <select
                   id="def-titulo-dirigente"
-                  value={store.defaults.tituloDirigente || "Presbítero"}
+                  value={store.defaults?.tituloDirigente || "Presbítero"}
                   onChange={(e) => store.saveDefault("tituloDirigente", e.target.value)}
                   className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm font-medium focus:outline-none focus:ring-2 focus:ring-ring"
                 >
@@ -492,7 +492,7 @@ export function ConfiguracoesPage({ store }: Props) {
                 <Input 
                   id="def-dirigente" 
                   placeholder="Ex: Fábio Vieitas" 
-                  value={store.defaults.pastorDirigente || ''} 
+                  value={store.defaults?.pastorDirigente || ''} 
                   onChange={(e) => store.saveDefault('pastorDirigente', e.target.value)}
                 />
                 <p className="text-[11px] text-muted-foreground">
@@ -504,7 +504,7 @@ export function ConfiguracoesPage({ store }: Props) {
                 <Input 
                   id="def-secretario" 
                   placeholder="Nome do secretário(a)" 
-                  value={store.defaults.nomeSecretario || ''} 
+                  value={store.defaults?.nomeSecretario || ''} 
                   onChange={(e) => store.saveDefault('nomeSecretario', e.target.value)}
                 />
               </div>
@@ -513,7 +513,7 @@ export function ConfiguracoesPage({ store }: Props) {
                 <Input 
                   id="def-tesoureiro" 
                   placeholder="Nome do responsável pelo financeiro" 
-                  value={store.defaults.tesoureira || ''} 
+                  value={store.defaults?.tesoureira || ''} 
                   onChange={(e) => store.saveDefault('tesoureira', e.target.value)}
                 />
               </div>
