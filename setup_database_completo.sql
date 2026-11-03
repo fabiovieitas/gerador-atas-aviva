@@ -4,9 +4,13 @@
 -- https://supabase.com/dashboard/project/pnxssrrfgmmcxvrwzkvh/sql/new
 -- ==============================================================================
 
--- 1. EXTENSÕES BÁSICAS
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+-- 1. EXTENSÕES BÁSICAS (Com schema extensions e public)
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS "pgcrypto" SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS "pgcrypto" SCHEMA public;
+
+SET search_path = public, extensions;
 
 -- 2. TIPO DE PERMISSÃO / CARGO (SE NÃO EXISTIR)
 DO $$
@@ -211,7 +215,7 @@ CREATE TABLE IF NOT EXISTS public.user_sessions (
 -- 5. FUNÇÕES AUXILIARES DE PAPEL
 CREATE OR REPLACE FUNCTION public.has_role(_user_id UUID, _role app_role)
 RETURNS BOOLEAN
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.user_roles
     WHERE user_id = _user_id AND role = _role
@@ -220,7 +224,7 @@ $$;
 
 CREATE OR REPLACE FUNCTION public.is_admin_or_master(_user_id UUID)
 RETURNS BOOLEAN
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.user_roles
     WHERE user_id = _user_id AND role IN ('admin', 'master')
@@ -320,7 +324,8 @@ CREATE POLICY "Tickets: acesso autenticados" ON public.support_tickets FOR ALL T
 
 DROP POLICY IF EXISTS "News: leitura livre" ON public.news;
 CREATE POLICY "News: leitura livre" ON public.news FOR SELECT USING (true);
-DROP POLICY IF EXISTS "News: escrita autenticada" ON public.news FOR ALL TO authenticated USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "News: escrita autenticada" ON public.news;
+CREATE POLICY "News: escrita autenticada" ON public.news FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "User Sessions: acesso autenticados" ON public.user_sessions;
 CREATE POLICY "User Sessions: acesso autenticados" ON public.user_sessions FOR ALL TO authenticated USING (true) WITH CHECK (true);
@@ -348,7 +353,7 @@ CREATE OR REPLACE FUNCTION public.complete_registration(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_invite RECORD;
@@ -378,7 +383,7 @@ CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_church_id UUID;
@@ -427,19 +432,17 @@ FOR EACH ROW
 EXECUTE FUNCTION public.handle_new_user();
 
 -- 11. DADOS INICIAIS (IGREJA MATRIZ + CRIAÇÃO / ATIVAÇÃO DO USUÁRIO MASTER)
+-- 11.1 Garante Igreja Matriz sempre criada
+INSERT INTO public.churches (id, nome, cidade, estado)
+VALUES ('a0000000-0000-0000-0000-000000000001'::uuid, 'Igreja Evangélica AVIVA - Matriz', 'Campos dos Goytacazes', 'RJ')
+ON CONFLICT (id) DO NOTHING;
+
+-- 11.2 Sincroniza qualquer usuário já existente em auth.users para Profiles e Master
 DO $$
 DECLARE
   v_church_id UUID := 'a0000000-0000-0000-0000-000000000001'::uuid;
-  v_user_id UUID;
   v_rec RECORD;
-  v_pw_hash TEXT;
 BEGIN
-  -- 11.1 Garante Igreja Matriz
-  INSERT INTO public.churches (id, nome, cidade, estado)
-  VALUES (v_church_id, 'Igreja Evangélica AVIVA - Matriz', 'Campos dos Goytacazes', 'RJ')
-  ON CONFLICT (id) DO NOTHING;
-
-  -- 11.2 Sincroniza qualquer usuário já existente em auth.users para Profiles e Master
   FOR v_rec IN SELECT id, email, raw_user_meta_data FROM auth.users LOOP
     INSERT INTO public.profiles (user_id, nome, email, church_id, status)
     VALUES (
@@ -457,87 +460,78 @@ BEGIN
     VALUES (v_rec.id, 'master')
     ON CONFLICT (user_id, role) DO NOTHING;
   END LOOP;
+END $$;
 
-  -- 11.3 Garante a conta fabiovieitas@gmail.com diretamente com a senha provisória Aviva@2026
-  SELECT id INTO v_user_id FROM auth.users WHERE email = 'fabiovieitas@gmail.com';
-  
-  -- Gera hash bcrypt da senha 'Aviva@2026'
-  v_pw_hash := crypt('Aviva@2026', gen_salt('bf'));
+-- 11.3 Bloco protegido para criação/redefinição direta em auth.users
+DO $$
+DECLARE
+  v_church_id UUID := 'a0000000-0000-0000-0000-000000000001'::uuid;
+  v_user_id UUID;
+  v_pw_hash TEXT;
+BEGIN
+  BEGIN
+    -- Tenta gerar hash com extensões disponíveis
+    SELECT extensions.crypt('Aviva@2026', extensions.gen_salt('bf')) INTO v_pw_hash;
+  EXCEPTION WHEN OTHERS THEN
+    BEGIN
+      SELECT public.crypt('Aviva@2026', public.gen_salt('bf')) INTO v_pw_hash;
+    EXCEPTION WHEN OTHERS THEN
+      v_pw_hash := NULL;
+    END;
+  END;
 
-  IF v_user_id IS NULL THEN
-    v_user_id := gen_random_uuid();
-    INSERT INTO auth.users (
-      instance_id,
-      id,
-      aud,
-      role,
-      email,
-      encrypted_password,
-      email_confirmed_at,
-      raw_app_meta_data,
-      raw_user_meta_data,
-      created_at,
-      updated_at,
-      confirmation_token
-    ) VALUES (
-      '00000000-0000-0000-0000-000000000000',
-      v_user_id,
-      'authenticated',
-      'authenticated',
-      'fabiovieitas@gmail.com',
-      v_pw_hash,
-      now(),
-      '{"provider":"email","providers":["email"]}',
-      '{"nome":"Fábio Vieitas"}',
-      now(),
-      now(),
-      ''
-    );
-  ELSE
-    -- Se já existia, redefine a senha para Aviva@2026 e confirma o email
-    UPDATE auth.users
-    SET encrypted_password = v_pw_hash,
-        email_confirmed_at = COALESCE(email_confirmed_at, now()),
-        updated_at = now()
-    WHERE id = v_user_id;
-  END IF;
+  IF v_pw_hash IS NOT NULL THEN
+    SELECT id INTO v_user_id FROM auth.users WHERE email = 'fabiovieitas@gmail.com';
 
-  -- Cria identidade para o Supabase Auth reconhecer o login por email
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'auth' AND table_name = 'identities') THEN
+    IF v_user_id IS NULL THEN
+      v_user_id := gen_random_uuid();
+      BEGIN
+        INSERT INTO auth.users (
+          instance_id, id, aud, role, email, encrypted_password,
+          email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
+          created_at, updated_at, confirmation_token
+        ) VALUES (
+          '00000000-0000-0000-0000-000000000000', v_user_id, 'authenticated', 'authenticated',
+          'fabiovieitas@gmail.com', v_pw_hash, now(),
+          '{"provider":"email","providers":["email"]}', '{"nome":"Fábio Vieitas"}',
+          now(), now(), ''
+        );
+      EXCEPTION WHEN OTHERS THEN
+        RAISE NOTICE 'Não foi possível inserir direto em auth.users: %', SQLERRM;
+      END;
+    ELSE
+      UPDATE auth.users
+      SET encrypted_password = v_pw_hash,
+          email_confirmed_at = COALESCE(email_confirmed_at, now()),
+          updated_at = now()
+      WHERE id = v_user_id;
+    END IF;
+
+    -- Tenta inserir identidade
     BEGIN
       INSERT INTO auth.identities (
-        id,
-        user_id,
-        identity_data,
-        provider,
-        provider_id,
-        last_sign_in_at,
-        created_at,
-        updated_at
+        id, user_id, identity_data, provider, provider_id,
+        last_sign_in_at, created_at, updated_at
       ) VALUES (
-        v_user_id::text,
-        v_user_id,
+        v_user_id::text, v_user_id,
         jsonb_build_object('sub', v_user_id::text, 'email', 'fabiovieitas@gmail.com'),
-        'email',
-        v_user_id::text,
-        now(),
-        now(),
-        now()
-      ) ON CONFLICT (provider, provider_id) DO NOTHING;
+        'email', v_user_id::text,
+        now(), now(), now()
+      ) ON CONFLICT DO NOTHING;
     EXCEPTION WHEN OTHERS THEN
-      -- Se a estrutura de identities variar por versão do Supabase, ignora silenciosamente
       NULL;
     END;
+
+    -- Vincula profile e role se o user existir
+    IF v_user_id IS NOT NULL THEN
+      INSERT INTO public.profiles (user_id, nome, email, church_id, status)
+      VALUES (v_user_id, 'Fábio Vieitas', 'fabiovieitas@gmail.com', v_church_id, 'ativo')
+      ON CONFLICT (user_id) DO UPDATE 
+      SET church_id = v_church_id, status = 'ativo', nome = 'Fábio Vieitas';
+
+      INSERT INTO public.user_roles (user_id, role)
+      VALUES (v_user_id, 'master')
+      ON CONFLICT (user_id, role) DO NOTHING;
+    END IF;
   END IF;
-
-  -- Vincula perfil e cargo Master
-  INSERT INTO public.profiles (user_id, nome, email, church_id, status)
-  VALUES (v_user_id, 'Fábio Vieitas', 'fabiovieitas@gmail.com', v_church_id, 'ativo')
-  ON CONFLICT (user_id) DO UPDATE 
-  SET church_id = v_church_id, status = 'ativo', nome = 'Fábio Vieitas';
-
-  INSERT INTO public.user_roles (user_id, role)
-  VALUES (v_user_id, 'master')
-  ON CONFLICT (user_id, role) DO NOTHING;
-
 END $$;

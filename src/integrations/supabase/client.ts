@@ -2,19 +2,21 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-// Active project credentials (fail-safe fallback against outdated Vercel dashboard env vars)
-const ACTIVE_SUPABASE_URL = "https://pnxssrrfgmmcxvrwzkvh.supabase.co";
-const ACTIVE_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBueHNzcnJmZ21tY3h2cnd6a3ZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0OTk3MzAsImV4cCI6MjA5MTA3NTczMH0.gNTI7_9rJmjDvzmJaOX2FlvPLlQh5L_eIkjUweBorVg";
+// Active official project credentials for gerador-atas-aviva
+const ACTIVE_SUPABASE_URL = "https://elarbdbtymfqdboufama.supabase.co";
+const ACTIVE_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVsYXJiZGJ0eW1mcWRib3VmYW1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM3MTQ4NjEsImV4cCI6MjEwOTI5MDg2MX0.Al8WNbTH7QBtBn6uwXazWIEVzZ7_3MddglDeoHWCUJM";
 
 const envUrl = import.meta.env.VITE_SUPABASE_URL;
 const envKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-// If env is empty or points to the old dead Lovable project, use the active database
-const SUPABASE_URL = (!envUrl || envUrl.includes('tkdtagdpqipdvwceqkoa')) ? ACTIVE_SUPABASE_URL : envUrl;
-const SUPABASE_PUBLISHABLE_KEY = (!envKey || envUrl?.includes('tkdtagdpqipdvwceqkoa')) ? ACTIVE_SUPABASE_KEY : envKey;
+// Use active project credentials
+const SUPABASE_URL = (!envUrl || envUrl.includes('tkdtagdpqipdvwceqkoa') || envUrl.includes('pnxssrrfgmmcxvrwzkvh')) 
+  ? ACTIVE_SUPABASE_URL 
+  : envUrl;
 
-// Import the supabase client like this:
-// import { supabase } from "@/integrations/supabase/client";
+const SUPABASE_PUBLISHABLE_KEY = (!envKey || envUrl?.includes('tkdtagdpqipdvwceqkoa') || envUrl?.includes('pnxssrrfgmmcxvrwzkvh')) 
+  ? ACTIVE_SUPABASE_KEY 
+  : envKey;
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
