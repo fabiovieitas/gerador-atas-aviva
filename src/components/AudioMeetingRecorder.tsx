@@ -107,13 +107,54 @@ export function AudioMeetingRecorder({ churchId, onApplyToAta }: Props) {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  // Inicializa o Web Speech API nativo diretamente (suportado no Chrome, Edge, Safari e Opera)
-  // IDÊNTICO À PRIMEIRA VERSÃO (d147370) que funcionava perfeitamente
+  // Efeito de limpeza ao desmontar o componente
   useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.onend = null;
+          recognitionRef.current.onerror = null;
+          recognitionRef.current.stop();
+        } catch {}
+      }
+    };
+  }, []);
+
+  const toggleRecording = () => {
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
-    if (SpeechRecognition) {
+    if (!SpeechRecognition) {
+      toast.error("Reconhecimento de fala nativo não suportado neste navegador. Use Google Chrome ou Edge.");
+      return;
+    }
+
+    if (isRecording) {
+      // Parar gravação
+      isRecordingRef.current = false;
+      setIsRecording(false);
+      setInterimTranscript("");
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.onend = null;
+          recognitionRef.current.onerror = null;
+          recognitionRef.current.stop();
+        } catch {}
+        recognitionRef.current = null;
+      }
+      toast.info("Gravação de voz pausada.");
+      return;
+    }
+
+    // Iniciar gravação de voz diretamente no gesto de clique do usuário
+    try {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.onend = null;
+          recognitionRef.current.abort();
+        } catch {}
+      }
+
       const recognition = new SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = true;
@@ -133,23 +174,27 @@ export function AudioMeetingRecorder({ churchId, onApplyToAta }: Props) {
         }
 
         if (currentFinal) {
-          setTranscript((prev) => prev + currentFinal);
+          setTranscript((prev) => (prev ? prev.trim() + " " : "") + currentFinal.trim());
         }
         setInterimTranscript(currentInterim);
       };
 
       recognition.onerror = (event: any) => {
-        console.error("Erro no reconhecimento de voz:", event.error);
-        if (event.error === "not-allowed") {
-          toast.error("Permissão de microfone negada no navegador.");
-          setIsRecording(false);
+        console.warn("SpeechRecognition erro:", event.error);
+        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+          toast.error("Permissão de microfone negada. Clique no cadeado da barra de endereço e permita o microfone.");
           isRecordingRef.current = false;
+          setIsRecording(false);
+        } else if (event.error === "audio-capture") {
+          toast.error("Nenhum microfone detectado no dispositivo.");
+          isRecordingRef.current = false;
+          setIsRecording(false);
         }
       };
 
       recognition.onend = () => {
-        // Se ainda deveria estar gravando, reconecta (evita pausas do browser por silêncio)
-        if (isRecording) {
+        // Se ainda estiver no modo de gravação ativo, reconecta suavemente
+        if (isRecordingRef.current) {
           try {
             recognition.start();
           } catch {}
@@ -157,43 +202,16 @@ export function AudioMeetingRecorder({ churchId, onApplyToAta }: Props) {
       };
 
       recognitionRef.current = recognition;
-    }
-  }, [isRecording]);
+      recognition.start();
 
-  const toggleRecording = () => {
-    if (!recognitionRef.current) {
-      toast.error("Reconhecimento de fala nativo não suportado neste navegador. Use Google Chrome ou Edge.");
-      return;
-    }
-
-    if (isRecording) {
+      isRecordingRef.current = true;
+      setIsRecording(true);
+      toast.success("Gravando áudio da assembleia em tempo real... Fale agora!");
+    } catch (err: any) {
+      console.error("Erro ao iniciar microfone:", err);
+      toast.error("Erro ao ativar microfone: " + (err.message || "Tente novamente"));
       isRecordingRef.current = false;
       setIsRecording(false);
-      setInterimTranscript("");
-      try {
-        recognitionRef.current.stop();
-      } catch {}
-      toast.info("Gravação de voz pausada.");
-    } else {
-      try {
-        recognitionRef.current.start();
-        setIsRecording(true);
-        isRecordingRef.current = true;
-        toast.success("Gravando áudio da assembleia em tempo real... Fale agora!");
-      } catch (err: any) {
-        console.error("Erro ao iniciar reconhecimento:", err);
-        // Se já estava em execução, tenta parar e religar
-        try {
-          recognitionRef.current.stop();
-          setTimeout(() => {
-            recognitionRef.current.start();
-            setIsRecording(true);
-            isRecordingRef.current = true;
-          }, 200);
-        } catch (e2) {
-          toast.error("Erro ao acessar o microfone.");
-        }
-      }
     }
   };
 

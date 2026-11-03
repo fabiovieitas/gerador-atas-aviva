@@ -107,7 +107,7 @@ export async function exportarParaDocx(
   paragraphs.push(
     new Paragraph({
       spacing: { before: 500, after: 200 },
-      children: [],
+      children: [new TextRun("")],
     })
   );
 
