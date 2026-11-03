@@ -736,7 +736,7 @@ ${transcript}
                 </div>
               )}
 
-              {aiExtractedData.tags && aiExtractedData.tags.length > 0 && (
+              {Array.isArray(aiExtractedData.tags) && aiExtractedData.tags.length > 0 && (
                 <div className="space-y-1 text-xs">
                   <span className="font-bold text-emerald-900 dark:text-emerald-200 uppercase text-[10px]">
                     Palavras-chave e Tags Identificadas ({aiExtractedData.tags.length}):

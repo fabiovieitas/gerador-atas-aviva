@@ -1,5 +1,5 @@
 import { useAtaStore } from "@/hooks/useAtaStore";
-import { MeetingInfoSection } from "@/components/MeetingInfoSection";
+import { MeetingInfoSection, safeParseArray } from "@/components/MeetingInfoSection";
 import { FinancialReportSection } from "@/components/FinancialReportSection";
 import { DeliberationsSection } from "@/components/DeliberationsSection";
 import { SecretarySection } from "@/components/SecretarySection";
@@ -286,50 +286,55 @@ export function NovaAtaPage({ store }: Props) {
       />
 
       {/* Barra Sempre Visível de Palavras-Chave e Temas da Ata */}
-      <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-card border shadow-xs">
-        <div className="flex flex-wrap items-center gap-2">
-          <Tag className="w-4 h-4 text-primary shrink-0" />
-          <span className="text-xs font-bold text-foreground uppercase tracking-wider">
-            Palavras-chave da Ata:
-          </span>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {((store.formData.tags as string[]) || []).length > 0 ? (
-              ((store.formData.tags as string[]) || []).map((t, i) => (
-                <span
-                  key={i}
-                  className="inline-flex items-center gap-1 text-xs font-bold bg-primary/10 text-primary border border-primary/25 px-2.5 py-0.5 rounded-full"
-                >
-                  #{t}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const updated = (store.formData.tags || []).filter((item) => item !== t);
-                      store.updateField("tags", updated);
-                    }}
-                    className="hover:text-destructive hover:bg-destructive/10 rounded-full p-0.5 transition-colors"
-                    title="Remover palavra-chave"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              ))
-            ) : (
-              <span className="text-xs text-muted-foreground italic">
-                Nenhuma palavra-chave selecionada ainda (ex: #Desligamento, #Financeiro, #Retiro, #Reforma).
+      {(() => {
+        const currentTags = safeParseArray(store.formData.tags);
+        return (
+          <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-card border shadow-xs">
+            <div className="flex flex-wrap items-center gap-2">
+              <Tag className="w-4 h-4 text-primary shrink-0" />
+              <span className="text-xs font-bold text-foreground uppercase tracking-wider">
+                Palavras-chave da Ata:
               </span>
-            )}
+              <div className="flex flex-wrap items-center gap-1.5">
+                {currentTags.length > 0 ? (
+                  currentTags.map((t, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center gap-1 text-xs font-bold bg-primary/10 text-primary border border-primary/25 px-2.5 py-0.5 rounded-full"
+                    >
+                      #{t}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = currentTags.filter((item) => item !== t);
+                          store.updateField("tags", updated);
+                        }}
+                        className="hover:text-destructive hover:bg-destructive/10 rounded-full p-0.5 transition-colors"
+                        title="Remover palavra-chave"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-xs text-muted-foreground italic">
+                    Nenhuma palavra-chave selecionada ainda (ex: #Desligamento, #Financeiro, #Retiro, #Reforma).
+                  </span>
+                )}
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setActiveTab("info")}
+              className="text-xs text-primary h-7 gap-1"
+            >
+              Gerenciar Tags
+            </Button>
           </div>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => setActiveTab("info")}
-          className="text-xs text-primary h-7 gap-1"
-        >
-          Gerenciar Tags
-        </Button>
-      </div>
+        );
+      })()}
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

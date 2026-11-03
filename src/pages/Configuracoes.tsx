@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import mammoth from "mammoth";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useAtaStore } from "@/hooks/useAtaStore";
@@ -233,9 +232,10 @@ export function ConfiguracoesPage({ store }: Props) {
     toast.info(`Processando documento do ${tipoNome}...`);
 
     try {
-      // Se for Word DOCX, extrai o texto integralmente via Mammoth
+      // Se for Word DOCX, extrai o texto integralmente via Mammoth dinamicamente
       if (isDocx) {
         try {
+          const mammoth = await import("mammoth");
           const arrayBuffer = await file.arrayBuffer();
           const result = await mammoth.extractRawText({ arrayBuffer });
           const extractedText = result.value?.trim();
