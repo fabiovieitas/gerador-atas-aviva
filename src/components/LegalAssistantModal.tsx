@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { getGroqApiKey } from "@/lib/aiConfig";
 
 interface Props {
   estatutoTexto?: string | null;
@@ -61,8 +62,7 @@ ${baseLegal || "Estatuto Social padrão da Igreja Evangélica AVIVA (Art. 53: Qu
 
     // 1. TIER 1: Groq com modelo Qwen 27B de alta precisão jurídica e estatutária (HTTPS direto, produção, mobile e Vercel)
     try {
-      const defaultKey = atob("Z3NrX21hWjZRa01MOGZyOEc3VjRRdmxuV0dkeWJ3RllNbG5BRzliVEVNaU1GS0tDdjZCMWgzeHk=");
-      const groqKey = localStorage.getItem("aviva_groq_key") || import.meta.env.VITE_GROQ_API_KEY || defaultKey;
+      const groqKey = getGroqApiKey();
       const resGroq = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: {

@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { getGroqApiKey } from "@/lib/aiConfig";
 
 export const detectHeuristicTags = (text: string): string[] => {
   if (!text) return [];
@@ -58,8 +59,6 @@ interface Props {
   }) => void;
 }
 
-const DEFAULT_GROQ_KEY = atob("Z3NrX21hWjZRa01MOGZyOEc3VjRRdmxuV0dkeWJ3RllNbG5BRzliVEVNaU1GS0tDdjZCMWgzeHk=");
-
 export function AudioMeetingRecorder({ churchId, onApplyToAta }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -77,7 +76,7 @@ export function AudioMeetingRecorder({ churchId, onApplyToAta }: Props) {
   const [isProcessingAI, setIsProcessingAI] = useState(false);
   const [isTranscribingWhisper, setIsTranscribingWhisper] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [groqKey, setGroqKey] = useState<string>(() => localStorage.getItem("aviva_groq_key") || DEFAULT_GROQ_KEY);
+  const [groqKey, setGroqKey] = useState<string>(() => getGroqApiKey());
   const [aiExtractedData, setAiExtractedData] = useState<any>(null);
   const [showGroqModal, setShowGroqModal] = useState(false);
 
@@ -159,7 +158,7 @@ export function AudioMeetingRecorder({ churchId, onApplyToAta }: Props) {
       setIsTranscribingWhisper(true);
       toast.info("Processando transcrição de alta precisão com Whisper Turbo...");
 
-      const activeKey = groqKey || DEFAULT_GROQ_KEY;
+      const activeKey = groqKey || getGroqApiKey();
       const formData = new FormData();
       formData.append("file", blob, "gravacao_assembleia.webm");
       formData.append("model", "whisper-large-v3-turbo");
@@ -463,7 +462,7 @@ export function AudioMeetingRecorder({ churchId, onApplyToAta }: Props) {
     setIsUploading(true);
     toast.info("Transcrevendo áudio via Groq Whisper Turbo...");
 
-    const activeKey = groqKey || DEFAULT_GROQ_KEY;
+    const activeKey = groqKey || getGroqApiKey();
     const formData = new FormData();
     formData.append("file", file);
     formData.append("model", "whisper-large-v3-turbo");
@@ -552,7 +551,7 @@ ${transcript}
 
     // 1. TIER 1: Groq com Qwen 27B de alta precisão (funciona em produção, mobile e Vercel via HTTPS direto)
     try {
-      const activeGroqKey = groqKey || DEFAULT_GROQ_KEY;
+      const activeGroqKey = groqKey || getGroqApiKey();
       const resGroq = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: {

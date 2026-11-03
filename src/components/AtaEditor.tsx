@@ -8,6 +8,7 @@ import html2pdf from 'html2pdf.js';
 import { exportarParaDocx } from '@/lib/docxExport';
 import { supabase } from '@/integrations/supabase/client';
 import { EstatutoSearchModal } from "./EstatutoSearchModal";
+import { getGroqApiKey } from "@/lib/aiConfig";
 
 
 interface SignatureData {
@@ -305,8 +306,7 @@ Diretrizes:
       // 2. Fallback Groq (HTTPS nativo direto na nuvem)
       if (!aiText) {
         try {
-          const defaultKey = atob("Z3NrX21hWjZRa01MOGZyOEc3VjRRdmxuV0dkeWJ3RllNbG5BRzliVEVNaU1GS0tDdjZCMWgzeHk=");
-          const groqKey = localStorage.getItem("aviva_groq_key") || import.meta.env.VITE_GROQ_API_KEY || defaultKey;
+          const groqKey = getGroqApiKey();
           const resGroq = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
             headers: {
